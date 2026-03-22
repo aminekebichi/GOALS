@@ -28,3 +28,12 @@ data/87/*/output/*.csv
 
 # Keep FBref CSVs (small, primary source — committed to repo)
 !data/FBref/**/*.csv
+
+# ML artifacts (regenerated locally via train.py)
+goals_app/ml/artifacts/*.pkl
+goals_app/ml/artifacts/*.json
+
+# Frontend build output
+frontend/dist/
+frontend/.svelte-kit/
+frontend/node_modules/
