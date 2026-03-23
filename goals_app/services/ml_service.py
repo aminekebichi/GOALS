@@ -14,8 +14,16 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score, f1_score, confusion_matrix
 
-from goals_app.config import ARTIFACTS_DIR, TRAIN_SEASONS, TEST_SEASON
-from goals_app.services.feature_service import build_season_data
+from goals_app.config import ARTIFACTS_DIR, TRAIN_SEASONS, TEST_SEASON, FOTMOB_DIR
+from goals_app.services.feature_service import (
+    build_season_data,
+    load_season,
+    load_fixtures_only,
+    compute_outfield_composite,
+    compute_gk_composite,
+    derive_match_results,
+    aggregate_to_team,
+)
 
 FEATURE_COLS = [
     "home_att", "home_mid", "home_def", "home_gk",
@@ -130,6 +138,163 @@ def load_model() -> tuple:
     with open(ARTIFACT_METRICS) as f:
         metrics = json.load(f)
     return clf, outfield_scaler, gk_scaler, metrics
+
+
+def predict_all_fixtures(season: str) -> list[dict]:
+    """
+    Predict every fixture in a season — both played and unplayed.
+
+    - Played matches: use actual per-match composite scores.
+    - Unplayed matches: use each team's season-average composite scores as proxy.
+    - If a team has no data this season yet: fall back to their average across
+      all available training seasons.
+
+    Returns list of {match_id, win_prob, draw_prob, loss_prob}.
+    """
+    clf, outfield_scaler, gk_scaler, _ = load_model()
+    classes = list(clf.classes_)
+
+    def _proba(feature_row) -> dict:
+        X = [[
+            feature_row["home_att"], feature_row["home_mid"],
+            feature_row["home_def"], feature_row["home_gk"],
+            feature_row["away_att"], feature_row["away_mid"],
+            feature_row["away_def"], feature_row["away_gk"],
+        ]]
+        p = dict(zip(classes, clf.predict_proba(X)[0]))
+        return {
+            "win_prob": round(p.get("W", 0), 4),
+            "draw_prob": round(p.get("D", 0), 4),
+            "loss_prob": round(p.get("L", 0), 4),
+        }
+
+    # ----------------------------------------------------------------
+    # Load season player data — fall back to fixtures-only if not scraped
+    # ----------------------------------------------------------------
+    played_lookup: dict = {}
+    team_avg: dict = {}
+
+    try:
+        outfield_df, gk_df, fixtures_df = load_season(season)
+
+        outfield_scored, _ = compute_outfield_composite(outfield_df, outfield_scaler)
+        gk_scored, _ = compute_gk_composite(gk_df, gk_scaler)
+
+        player_cols = ["match_id", "team_id", "position_group", "composite_score"]
+        for col in player_cols:
+            if col not in outfield_scored.columns:
+                outfield_scored[col] = None
+            if col not in gk_scored.columns:
+                gk_scored[col] = None
+
+        all_players = pd.concat(
+            [outfield_scored[player_cols], gk_scored[player_cols]],
+            ignore_index=True,
+        )
+
+        # Per-match features for played matches
+        fixtures_with_results = derive_match_results(outfield_df, fixtures_df)
+        match_features = aggregate_to_team(all_players, fixtures_with_results)
+        played_lookup = {
+            str(r["match_id"]): r
+            for _, r in match_features[FEATURE_COLS + ["match_id"]].iterrows()
+        }
+
+        # Season-average per team (proxy for unplayed matches)
+        avg_pivot = (
+            all_players.groupby(["team_id", "position_group"])["composite_score"]
+            .mean()
+            .reset_index()
+            .pivot_table(index="team_id", columns="position_group",
+                         values="composite_score", fill_value=0)
+            .reset_index()
+        )
+        avg_pivot.columns.name = None
+        for col in ["ATT", "MID", "DEF", "GK"]:
+            if col not in avg_pivot.columns:
+                avg_pivot[col] = 0.0
+        avg_pivot["team_id"] = pd.to_numeric(avg_pivot["team_id"], errors="coerce").astype("Int64")
+        team_avg = avg_pivot.set_index("team_id").to_dict(orient="index")
+
+    except FileNotFoundError:
+        # Player parquets not scraped yet — try fixtures-only
+        try:
+            fixtures_df = load_fixtures_only(season)
+        except FileNotFoundError:
+            return []  # Nothing to show at all
+
+    # ----------------------------------------------------------------
+    # Fallback: training-season averages for teams with no current data
+    # ----------------------------------------------------------------
+    fallback_avg: dict = {}
+    try:
+        available_train = [
+            s for s in TRAIN_SEASONS
+            if (FOTMOB_DIR / s / "output" / "outfield_players.parquet").exists()
+            and s != season
+        ]
+        if available_train:
+            _, all_players_train, _, _, _ = build_season_data(
+                available_train, outfield_scaler, gk_scaler
+            )
+            fb_pivot = (
+                all_players_train.groupby(["team_id", "position_group"])["composite_score"]
+                .mean()
+                .reset_index()
+                .pivot_table(index="team_id", columns="position_group",
+                             values="composite_score", fill_value=0)
+                .reset_index()
+            )
+            fb_pivot.columns.name = None
+            for col in ["ATT", "MID", "DEF", "GK"]:
+                if col not in fb_pivot.columns:
+                    fb_pivot[col] = 0.0
+            fb_pivot["team_id"] = pd.to_numeric(fb_pivot["team_id"], errors="coerce").astype("Int64")
+            fallback_avg = fb_pivot.set_index("team_id").to_dict(orient="index")
+    except Exception:
+        pass
+
+    # ----------------------------------------------------------------
+    # Predict every fixture
+    # ----------------------------------------------------------------
+    fixtures_df["home_id"] = pd.to_numeric(fixtures_df["home_id"], errors="coerce").astype("Int64")
+    fixtures_df["away_id"] = pd.to_numeric(fixtures_df["away_id"], errors="coerce").astype("Int64")
+
+    results = []
+    for _, fix in fixtures_df.iterrows():
+        mid = str(fix["match_id"])
+
+        if mid in played_lookup:
+            row = played_lookup[mid]
+            results.append({"match_id": mid, **_proba(row)})
+            continue
+
+        # Unplayed — look up team averages
+        home_id = fix["home_id"]
+        away_id = fix["away_id"]
+
+        def _team_vec(tid):
+            d = team_avg.get(tid) or fallback_avg.get(tid)
+            if d is None:
+                return None
+            return {"att": d.get("ATT", 0), "mid": d.get("MID", 0),
+                    "def": d.get("DEF", 0), "gk": d.get("GK", 0)}
+
+        home_vec = _team_vec(home_id)
+        away_vec = _team_vec(away_id)
+
+        if home_vec is None or away_vec is None:
+            continue  # No data for this team at all
+
+        feature_row = {
+            "home_att": home_vec["att"], "home_mid": home_vec["mid"],
+            "home_def": home_vec["def"], "home_gk": home_vec["gk"],
+            "away_att": away_vec["att"], "away_mid": away_vec["mid"],
+            "away_def": away_vec["def"], "away_gk": away_vec["gk"],
+        }
+        results.append({"match_id": mid, **_proba(feature_row)})
+
+    return results
 
 
 def predict_season(season: str) -> list[dict]:

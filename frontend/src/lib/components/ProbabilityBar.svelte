@@ -31,13 +31,14 @@
   }
 
   .prob-label {
-    width: 40px;
-    font-size: 10px;
+    width: 120px;
+    font-size: 11px;
     font-weight: 600;
-    letter-spacing: 0.5px;
     color: var(--text-secondary);
-    text-transform: uppercase;
     flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .bar-track {

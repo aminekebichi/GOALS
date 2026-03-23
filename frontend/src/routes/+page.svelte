@@ -1,172 +1,217 @@
 <script>
   import { onMount } from 'svelte';
   import MatchCard from '$lib/components/MatchCard.svelte';
+  import MatchDetail from '$lib/components/MatchDetail.svelte';
 
-  let matches = [];
-  let loading = true;
-  let error = null;
+  const SEASONS = [
+    { id: '2025_2026', label: '2025 / 26' },
+    { id: '2024_2025', label: '2024 / 25' },
+    { id: '2023_2024', label: '2023 / 24' },
+    { id: '2022_2023', label: '2022 / 23' },
+    { id: '2021_2022', label: '2021 / 22' },
+  ];
 
-  let season = '2024_2025';
-  let fromRound = null;
-  let toRound = null;
+  let seasons = SEASONS.map((s, i) => ({
+    ...s,
+    expanded: i === 0,
+    matches: [],
+    loading: false,
+    loaded: false,
+    error: null,
+  }));
 
-  async function fetchMatches() {
-    loading = true;
-    error = null;
+  let selectedMatchId = null;
+  let selectedMatchSeason = null;
+
+  async function loadSeason(idx) {
+    if (seasons[idx].loaded || seasons[idx].loading) return;
+    seasons[idx] = { ...seasons[idx], loading: true };
+    seasons = [...seasons];
     try {
-      const params = new URLSearchParams({ season });
-      if (fromRound) params.set('from_round', fromRound);
-      if (toRound) params.set('to_round', toRound);
-      const res = await fetch(`/api/matches?${params}`);
+      const res = await fetch(`/api/matches?season=${seasons[idx].id}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      matches = data.matches;
+      // Sort: upcoming first (asc date), then past (desc date)
+      const upcoming = data.matches
+        .filter(m => !m.finished)
+        .sort((a, b) => new Date(a.match_date) - new Date(b.match_date));
+      const past = data.matches
+        .filter(m => m.finished)
+        .sort((a, b) => new Date(b.match_date) - new Date(a.match_date));
+      seasons[idx] = { ...seasons[idx], matches: [...upcoming, ...past], loaded: true, error: null };
     } catch (e) {
-      error = e.message;
+      seasons[idx] = { ...seasons[idx], error: e.message };
     } finally {
-      loading = false;
+      seasons[idx] = { ...seasons[idx], loading: false };
+      seasons = [...seasons];
     }
   }
 
-  onMount(fetchMatches);
+  function toggleSeason(idx) {
+    seasons[idx] = { ...seasons[idx], expanded: !seasons[idx].expanded };
+    seasons = [...seasons];
+    if (seasons[idx].expanded && !seasons[idx].loaded) {
+      loadSeason(idx);
+    }
+  }
 
-  // Group matches by round
-  $: grouped = matches.reduce((acc, m) => {
-    const r = m.round ?? 0;
-    if (!acc[r]) acc[r] = [];
-    acc[r].push(m);
-    return acc;
-  }, {});
+  function selectMatch(matchId, seasonId) {
+    if (selectedMatchId === matchId) {
+      selectedMatchId = null;
+      selectedMatchSeason = null;
+    } else {
+      selectedMatchId = matchId;
+      selectedMatchSeason = seasonId;
+    }
+  }
 
-  $: rounds = Object.keys(grouped).map(Number).sort((a, b) => a - b);
+  onMount(() => {
+    // Load all seasons at once in parallel
+    seasons.forEach((_, i) => loadSeason(i));
+  });
 </script>
 
 <div class="page">
-  <div class="page-header">
-    <h1 class="page-title">Match Calendar</h1>
-    <div class="filters">
-      <label>
-        Season
-        <select bind:value={season} on:change={fetchMatches}>
-          <option value="2024_2025">2024/25</option>
-          <option value="2023_2024">2023/24</option>
-          <option value="2022_2023">2022/23</option>
-          <option value="2021_2022">2021/22</option>
-        </select>
-      </label>
-      <label>
-        From round
-        <input type="number" min="1" max="38" bind:value={fromRound} on:change={fetchMatches} placeholder="1" />
-      </label>
-      <label>
-        To round
-        <input type="number" min="1" max="38" bind:value={toRound} on:change={fetchMatches} placeholder="38" />
-      </label>
-    </div>
-  </div>
+  {#each seasons as season, idx}
+    <div class="season-section">
+      <!-- Subtle season divider -->
+      <button class="season-divider" on:click={() => toggleSeason(idx)}>
+        <span class="divider-line" />
+        <span class="divider-label">
+          <span class="divider-chevron" class:open={season.expanded}>›</span>
+          {season.label}
+          {#if season.loaded}
+            <span class="divider-count">{season.matches.length}</span>
+          {:else if season.loading}
+            <span class="divider-count">…</span>
+          {/if}
+        </span>
+        <span class="divider-line" />
+      </button>
 
-  {#if loading}
-    <div class="state-msg">Loading matches…</div>
-  {:else if error}
-    <div class="state-msg error">Error: {error}</div>
-  {:else if matches.length === 0}
-    <div class="state-msg">No matches found. Make sure the data is scraped and the API is running.</div>
-  {:else}
-    {#each rounds as round}
-      <div class="round-group">
-        <div class="round-header">Jornada {round}</div>
-        <div class="match-grid">
-          {#each grouped[round] as match}
-            <MatchCard {match} />
-          {/each}
+      {#if season.expanded}
+        <div class="match-list">
+          {#if season.error}
+            <div class="state-msg error">
+              {season.error.includes('404') || season.error.includes('500')
+                ? 'No data available for this season.'
+                : season.error}
+            </div>
+          {:else if season.loading}
+            <div class="state-msg">Loading…</div>
+          {:else if season.matches.length === 0}
+            <div class="state-msg">No matches found.</div>
+          {:else}
+            {#each season.matches as match}
+              <div class="match-wrap">
+                <MatchCard
+                  {match}
+                  selected={match.match_id === selectedMatchId}
+                  on:click={() => match.finished && selectMatch(match.match_id, season.id)}
+                />
+                {#if match.finished && match.match_id === selectedMatchId && selectedMatchSeason === season.id}
+                  <MatchDetail
+                    matchId={selectedMatchId}
+                    season={selectedMatchSeason}
+                    homeTeam={match.home_team}
+                    awayTeam={match.away_team}
+                  />
+                {/if}
+              </div>
+            {/each}
+          {/if}
         </div>
-      </div>
-    {/each}
-  {/if}
+      {/if}
+    </div>
+  {/each}
 </div>
 
 <style>
   .page {
-    padding: 24px;
-    max-width: 960px;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 32px 24px 64px;
+    width: 100%;
+    box-sizing: border-box;
   }
 
-  .page-header {
+  /* Season divider */
+  .season-section {
+    margin-bottom: 8px;
+  }
+
+  .season-divider {
+    width: 100%;
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 16px;
-    margin-bottom: 24px;
-  }
-
-  .page-title {
-    font-size: 22px;
-    font-weight: 700;
-  }
-
-  .filters {
-    display: flex;
-    gap: 16px;
-    flex-wrap: wrap;
-    align-items: flex-end;
-  }
-
-  label {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 11px;
+    align-items: center;
+    gap: 12px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 10px 0;
     color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
   }
 
-  select, input {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
+  .season-divider:hover .divider-label {
     color: var(--text-primary);
-    padding: 6px 10px;
-    border-radius: 4px;
-    font-size: 13px;
   }
 
-  input {
-    width: 70px;
+  .divider-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border-color);
   }
 
-  select:focus, input:focus {
-    outline: 1px solid var(--accent-primary);
-  }
-
-  .round-group {
-    margin-bottom: 28px;
-  }
-
-  .round-header {
+  .divider-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: 1.5px;
     text-transform: uppercase;
-    color: var(--text-secondary);
-    margin-bottom: 10px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+    transition: color 0.15s;
   }
 
-  .match-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 10px;
+  .divider-chevron {
+    font-size: 14px;
+    font-weight: 300;
+    transition: transform 0.2s;
+    display: inline-block;
+    line-height: 1;
+  }
+
+  .divider-chevron.open {
+    transform: rotate(90deg);
+  }
+
+  .divider-count {
+    font-size: 10px;
+    font-weight: 400;
+    opacity: 0.6;
+  }
+
+  /* Match list */
+  .match-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .match-wrap {
+    display: flex;
+    flex-direction: column;
   }
 
   .state-msg {
     color: var(--text-secondary);
-    padding: 40px 0;
-    font-size: 14px;
+    padding: 16px 0;
+    font-size: 13px;
+    text-align: center;
   }
 
   .state-msg.error {
-    color: var(--color-win);
+    color: var(--accent-secondary);
   }
 </style>

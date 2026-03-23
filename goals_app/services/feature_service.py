@@ -80,6 +80,14 @@ def load_season(season: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     return outfield, gk, fixtures
 
 
+def load_fixtures_only(season: str) -> pd.DataFrame:
+    """Load just the fixtures parquet — works even when player parquets don't exist yet."""
+    path = FOTMOB_DIR / season / "output" / "fixtures.parquet"
+    if not path.exists():
+        raise FileNotFoundError(f"No fixtures found for season {season} at {path}")
+    return pd.read_parquet(path)
+
+
 def load_multiple_seasons(seasons: list[str]) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Concatenate outfield, gk, and fixtures across multiple seasons."""
     outfields, gks, fixtures_list = [], [], []
@@ -281,10 +289,12 @@ def derive_match_results(outfield_df: pd.DataFrame, fixtures_df: pd.DataFrame) -
     goals_by_team["team_id"] = goals_by_team["team_id"].astype("int64")
 
     fix = fixtures_df.copy()
-    # Normalize fixture team IDs to int64 (parquet stores them as StringDtype)
-    fix["home_id"] = pd.to_numeric(fix["home_id"], errors="coerce").astype("Int64")
-    fix["away_id"] = pd.to_numeric(fix["away_id"], errors="coerce").astype("Int64")
-    goals_by_team["team_id"] = goals_by_team["team_id"].astype("Int64")
+    # Normalize all join key types
+    fix["match_id"]  = pd.to_numeric(fix["match_id"],  errors="coerce").astype("int64")
+    fix["home_id"]   = pd.to_numeric(fix["home_id"],   errors="coerce").astype("Int64")
+    fix["away_id"]   = pd.to_numeric(fix["away_id"],   errors="coerce").astype("Int64")
+    goals_by_team["match_id"] = pd.to_numeric(goals_by_team["match_id"], errors="coerce").astype("int64")
+    goals_by_team["team_id"]  = goals_by_team["team_id"].astype("Int64")
 
     # Join home goals
     home_goals = goals_by_team.rename(columns={"team_id": "home_id", "team_goals": "home_goals"})
@@ -344,13 +354,15 @@ def aggregate_to_team(
         if col not in pivot.columns:
             pivot[col] = 0.0
 
-    # Normalize team_id type for joins
-    pivot["team_id"] = pd.to_numeric(pivot["team_id"], errors="coerce").astype("Int64")
+    # Normalize all join key types
+    pivot["match_id"] = pd.to_numeric(pivot["match_id"], errors="coerce").astype("int64")
+    pivot["team_id"]  = pd.to_numeric(pivot["team_id"],  errors="coerce").astype("Int64")
 
     # Join to fixtures to get home/away split
     fix = fixtures_with_results[["match_id", "home_id", "away_id", "result"]].copy()
-    fix["home_id"] = pd.to_numeric(fix["home_id"], errors="coerce").astype("Int64")
-    fix["away_id"] = pd.to_numeric(fix["away_id"], errors="coerce").astype("Int64")
+    fix["match_id"] = pd.to_numeric(fix["match_id"], errors="coerce").astype("int64")
+    fix["home_id"]  = pd.to_numeric(fix["home_id"],  errors="coerce").astype("Int64")
+    fix["away_id"]  = pd.to_numeric(fix["away_id"],  errors="coerce").astype("Int64")
 
     home = pivot.rename(columns={
         "team_id": "home_id",

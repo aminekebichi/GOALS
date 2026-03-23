@@ -20,7 +20,10 @@ app.include_router(stats.router, prefix="/api")
 DIST = Path(__file__).parent.parent / "frontend" / "dist"
 
 if DIST.exists():
-    app.mount("/assets", StaticFiles(directory=str(DIST / "assets")), name="assets")
+    # Mount every top-level subdirectory in dist as a static path
+    for subdir in DIST.iterdir():
+        if subdir.is_dir():
+            app.mount(f"/{subdir.name}", StaticFiles(directory=str(subdir)), name=subdir.name)
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def spa_fallback(full_path: str):

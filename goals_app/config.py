@@ -4,7 +4,7 @@ DATA_ROOT = Path(__file__).parent.parent / "data"
 ARTIFACTS_DIR = Path(__file__).parent / "ml" / "artifacts"
 
 TRAIN_SEASONS = ["2021_2022", "2022_2023", "2023_2024"]
-TEST_SEASON = "2024_2025"
+TEST_SEASON = "2025_2026"
 
 FOTMOB_DIR = DATA_ROOT / "87"
 

@@ -6,7 +6,7 @@
   let loading = true;
   let error = null;
 
-  let season = '2024_2025';
+  let season = '2025_2026';
   let position = 'all';
   let searchInput = '';
 
@@ -46,6 +46,7 @@
       <label>
         Season
         <select bind:value={season} on:change={fetchPlayers}>
+          <option value="2025_2026">2025/26</option>
           <option value="2024_2025">2024/25</option>
           <option value="2023_2024">2023/24</option>
           <option value="2022_2023">2022/23</option>
@@ -107,7 +108,8 @@
 <style>
   .page {
     padding: 24px;
-    max-width: 960px;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .page-header {
