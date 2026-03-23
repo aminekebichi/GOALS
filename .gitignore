@@ -37,3 +37,8 @@ goals_app/ml/artifacts/*.json
 frontend/dist/
 frontend/.svelte-kit/
 frontend/node_modules/
+
+# HW4 writeup documents
+DEVELOPMENT_BREAKDOWN.md
+HW4_ Claude Code Workflow & TDD.pdf
+hw4_writeup.pdf
