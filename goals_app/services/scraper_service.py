@@ -167,9 +167,9 @@ def scrape_fixtures(league_id: int = 87, season: str = "2024_2025") -> pd.DataFr
             "match_date": status.get("utcTime", ""),
             "finished":   bool(status.get("finished", False)),
             "home_team":  home.get("name", ""),
-            "home_id":    str(home.get("id", "")),
+            "home_id":    home.get("id"),
             "away_team":  away.get("name", ""),
-            "away_id":    str(away.get("id", "")),
+            "away_id":    away.get("id"),
         })
 
     df = pd.DataFrame(rows)
