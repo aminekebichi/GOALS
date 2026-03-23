@@ -15,6 +15,7 @@ from goals_app.services.feature_service import (
     compute_outfield_composite,
     compute_gk_composite,
     get_player_metric_contributions,
+    get_player_raw_stats,
 )
 from goals_app.services import ml_service
 
@@ -137,6 +138,7 @@ async def get_match_players(
             "composite_score": round(float(row.get("composite_score", 0)), 3),
             "minutes_played": int(row.get("minutes_played", 0) or 0),
             "metric_contributions": get_player_metric_contributions(row, pos),
+            "raw_stats": get_player_raw_stats(row, pos),
         })
 
     for _, row in match_gk.iterrows():
@@ -148,6 +150,7 @@ async def get_match_players(
             "composite_score": round(float(row.get("composite_score", 0)), 3),
             "minutes_played": int(row.get("minutes_played", 0) or 0),
             "metric_contributions": get_player_metric_contributions(row, "GK"),
+            "raw_stats": get_player_raw_stats(row, "GK"),
         })
 
     if not players:

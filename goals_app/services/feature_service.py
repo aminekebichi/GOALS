@@ -435,6 +435,71 @@ def get_player_metric_contributions(row: pd.Series, position: str) -> dict:
     return {}
 
 
+def get_player_raw_stats(row: pd.Series, position: str) -> dict:
+    """
+    Returns raw (pre-normalisation) stat values for a player row.
+    Includes every metric used in the composite formula plus useful
+    supplementary stats, with human-readable labels.
+    Expects row to have the _* prefixed columns added by _build_*_features.
+    """
+    def _v(col: str) -> float:
+        val = row.get(col, 0)
+        try:
+            return round(float(val), 2) if val is not None else 0.0
+        except (TypeError, ValueError):
+            return 0.0
+
+    if position == "GK":
+        return {
+            "Saves":              _v("_saves"),
+            "xGoT Faced":         _v("_xgot_faced"),
+            "Diving Saves":       _v("_diving_saves"),
+            "Saves Inside Box":   _v("_saves_inside_box"),
+            "High Claims":        _v("_high_claims"),
+            "Sweeper Actions":    _v("_sweeper_actions"),
+            "Minutes Played":     _v("minutes_played"),
+        }
+
+    # Shared outfield stats
+    shared = {
+        "Goals":                _v("_goals_assists") - _v("_xa"),   # rough; use raw col
+        "Assists":              _v("assists") if "assists" in row.index else 0.0,
+        "Goals + Assists":      _v("_goals_assists"),
+        "Expected Goals (xG)":  _v("_xg"),
+        "Expected Assists (xA)":_v("_xa"),
+        "Successful Dribbles":  _v("_dribbles"),
+        "Shots on Target":      _v("_shots"),
+        "Chances Created":      _v("_chances_created"),
+        "Ball Recoveries":      _v("_recoveries"),
+        "Accurate Passes":      _v("_prog_pass"),
+        "Tackles":              _v("_tackles"),
+        "Interceptions":        _v("_interceptions"),
+        "Aerials Won":          _v("_aerials_won"),
+        "Clearances":           _v("_clearances"),
+        "Shot Blocks":          _v("_shot_blocks"),
+        "Minutes Played":       _v("minutes_played"),
+    }
+
+    # Keep only the stats relevant to this position at the top, then the rest
+    pos_primary = {
+        "ATT": ["Goals + Assists", "Expected Goals (xG)", "Expected Assists (xA)",
+                "Successful Dribbles", "Shots on Target", "Chances Created",
+                "Ball Recoveries", "Minutes Played"],
+        "MID": ["Accurate Passes", "Chances Created", "Expected Assists (xA)",
+                "Goals + Assists", "Tackles", "Interceptions",
+                "Ball Recoveries", "Minutes Played"],
+        "DEF": ["Tackles", "Aerials Won", "Clearances", "Interceptions",
+                "Shot Blocks", "Accurate Passes", "Minutes Played"],
+    }
+    order = pos_primary.get(position, list(shared.keys()))
+    # Return ordered dict: primary keys first, then any extras
+    result = {k: shared[k] for k in order if k in shared}
+    for k, v in shared.items():
+        if k not in result:
+            result[k] = v
+    return result
+
+
 # ---------------------------------------------------------------------------
 # High-level pipeline helper
 # ---------------------------------------------------------------------------
