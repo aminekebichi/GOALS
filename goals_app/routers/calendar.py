@@ -88,6 +88,7 @@ async def get_matches(
         matches.append({
             "match_id": mid,
             "match_date": match_date,
+            "season": season,
             "round": int(row["round"]) if pd.notna(row.get("round")) else None,
             "home_team": row.get("home_team"),
             "away_team": row.get("away_team"),

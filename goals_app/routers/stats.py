@@ -97,13 +97,16 @@ async def get_players(
         z_series = pd.Series(z_row)
         contributions = get_player_metric_contributions(z_series, pos)
 
+        matches_played = int(row["matches_played"])
+        composite_score = round(float(row["composite_score"]), 3)
         players.append({
             "player_id": str(pid),
             "player_name": row["player_name"],
             "team_name": row["team_name"],
             "position": pos,
-            "composite_score": round(float(row["composite_score"]), 3),
-            "matches_played": int(row["matches_played"]),
+            "composite_score": composite_score,
+            "matches_played": matches_played,
+            "per_match_average": round(composite_score / matches_played, 3),
             "metric_contributions": contributions,
         })
 
