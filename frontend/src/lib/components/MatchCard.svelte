@@ -196,7 +196,7 @@
 
   /* Prediction bars: right side */
   .prediction {
-    width: 260px;
+    width: 340px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;

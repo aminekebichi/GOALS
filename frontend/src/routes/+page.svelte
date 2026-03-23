@@ -128,11 +128,17 @@
 
 <style>
   .page {
-    max-width: 860px;
-    margin: 0 auto;
-    padding: 32px 24px 64px;
     width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 48px 64px;
     box-sizing: border-box;
+  }
+
+  @media (max-width: 768px) {
+    .page {
+      padding: 20px 16px 48px;
+    }
   }
 
   /* Season divider */
