@@ -3,22 +3,44 @@
   import MatchCard from '$lib/components/MatchCard.svelte';
   import MatchDetail from '$lib/components/MatchDetail.svelte';
 
-  const SEASONS = [
-    { id: '2025_2026', label: '2025 / 26' },
-    { id: '2024_2025', label: '2024 / 25' },
-    { id: '2023_2024', label: '2023 / 24' },
-    { id: '2022_2023', label: '2022 / 23' },
-    { id: '2021_2022', label: '2021 / 22' },
-  ];
+  const LEAGUE_CONFIG = {
+    47: {
+      name: 'Premier League',
+      seasons: [
+        { id: '2024_2025', label: '2024 / 25' },
+        { id: '2023_2024', label: '2023 / 24' },
+        { id: '2022_2023', label: '2022 / 23' },
+        { id: '2021_2022', label: '2021 / 22' },
+      ],
+    },
+    87: {
+      name: 'La Liga',
+      seasons: [
+        { id: '2025_2026', label: '2025 / 26' },
+        { id: '2024_2025', label: '2024 / 25' },
+        { id: '2023_2024', label: '2023 / 24' },
+        { id: '2022_2023', label: '2022 / 23' },
+        { id: '2021_2022', label: '2021 / 22' },
+      ],
+    },
+  };
 
-  let seasons = SEASONS.map((s, i) => ({
-    ...s,
-    expanded: i === 0,
-    matches: [],
-    loading: false,
-    loaded: false,
-    error: null,
-  }));
+  let leagueId = 47;
+
+  $: currentLeague = LEAGUE_CONFIG[leagueId];
+
+  function makeSeasonState(seasonList) {
+    return seasonList.map((s, i) => ({
+      ...s,
+      expanded: i === 0,
+      matches: [],
+      loading: false,
+      loaded: false,
+      error: null,
+    }));
+  }
+
+  let seasons = makeSeasonState(LEAGUE_CONFIG[leagueId].seasons);
 
   let selectedMatchId = null;
   let selectedMatchSeason = null;
@@ -28,10 +50,9 @@
     seasons[idx] = { ...seasons[idx], loading: true };
     seasons = [...seasons];
     try {
-      const res = await fetch(`/api/matches?season=${seasons[idx].id}`);
+      const res = await fetch(`/api/matches?season=${seasons[idx].id}&league_id=${leagueId}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      // Sort: upcoming first (asc date), then past (desc date)
       const upcoming = data.matches
         .filter(m => !m.finished)
         .sort((a, b) => new Date(a.match_date) - new Date(b.match_date));
@@ -65,16 +86,36 @@
     }
   }
 
+  function switchLeague(id) {
+    if (id === leagueId) return;
+    leagueId = id;
+    selectedMatchId = null;
+    selectedMatchSeason = null;
+    seasons = makeSeasonState(LEAGUE_CONFIG[id].seasons);
+    seasons.forEach((_, i) => loadSeason(i));
+  }
+
   onMount(() => {
-    // Load all seasons at once in parallel
     seasons.forEach((_, i) => loadSeason(i));
   });
 </script>
 
 <div class="page">
+  <!-- League toggle -->
+  <div class="league-toggle">
+    {#each Object.entries(LEAGUE_CONFIG) as [id, cfg]}
+      <button
+        class="league-btn"
+        class:active={leagueId === Number(id)}
+        on:click={() => switchLeague(Number(id))}
+      >
+        {cfg.name}
+      </button>
+    {/each}
+  </div>
+
   {#each seasons as season, idx}
     <div class="season-section">
-      <!-- Subtle season divider -->
       <button class="season-divider" on:click={() => toggleSeason(idx)}>
         <span class="divider-line" />
         <span class="divider-label">
@@ -113,6 +154,7 @@
                   <MatchDetail
                     matchId={selectedMatchId}
                     season={selectedMatchSeason}
+                    {leagueId}
                     homeTeam={match.home_team}
                     awayTeam={match.away_team}
                   />
@@ -139,6 +181,37 @@
     .page {
       padding: 20px 16px 48px;
     }
+  }
+
+  /* League toggle */
+  .league-toggle {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 28px;
+  }
+
+  .league-btn {
+    padding: 7px 18px;
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .league-btn:hover {
+    border-color: var(--accent-primary);
+    color: var(--text-primary);
+  }
+
+  .league-btn.active {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: #fff;
   }
 
   /* Season divider */

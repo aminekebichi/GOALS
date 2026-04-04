@@ -6,7 +6,7 @@
   <header class="top-bar">
     <div class="brand">
       <span class="brand-title">GOALS</span>
-      <span class="brand-sub">La Liga · ML Match Predictions</span>
+      <span class="brand-sub">ML Match Predictions</span>
     </div>
   </header>
   <main class="content">

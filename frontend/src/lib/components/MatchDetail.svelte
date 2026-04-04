@@ -3,6 +3,7 @@
 
   export let matchId;
   export let season;
+  export let leagueId = 47;
   export let homeTeam;
   export let awayTeam;
 
@@ -19,7 +20,7 @@
 
   onMount(async () => {
     try {
-      const res = await fetch(`/api/matches/${matchId}/players?season=${season}`);
+      const res = await fetch(`/api/matches/${matchId}/players?season=${season}&league_id=${leagueId}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       players = data.players;
