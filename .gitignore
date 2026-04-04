@@ -38,8 +38,9 @@ frontend/dist/
 frontend/.svelte-kit/
 frontend/node_modules/
 
-# HW4 writeup documents
+# HW writeup documents
 DEVELOPMENT_BREAKDOWN.md
 HW4_FINAL_WRITEUP.md
 HW4_ Claude Code Workflow & TDD.pdf
 hw4_writeup.pdf
+HW5_ Custom Skill + MCP Integration.pdf
