@@ -1,8 +1,6 @@
 # FotMob raw match JSON cache (large, re-scrape-able)
 data/47/*/raw/
-
-# Legacy La Liga data (kept locally, not committed)
-data/87/
+data/87/*/raw/
 
 # Python
 __pycache__/
@@ -28,6 +26,8 @@ Thumbs.db
 # Large output files (parquet/csv under FotMob output can be re-generated)
 data/47/*/output/*.parquet
 data/47/*/output/*.csv
+data/87/*/output/*.parquet
+data/87/*/output/*.csv
 
 # Keep FBref CSVs (small, primary source — committed to repo)
 !data/FBref/**/*.csv

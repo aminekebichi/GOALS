@@ -21,7 +21,7 @@ from pathlib import Path
 from sklearn.preprocessing import StandardScaler
 from typing import Optional
 
-from goals_app.config import FOTMOB_DIR, POSITION_MAP
+from goals_app.config import FOTMOB_DIRS, DEFAULT_LEAGUE_ID, POSITION_MAP
 
 
 # ---------------------------------------------------------------------------
@@ -71,29 +71,39 @@ GK_WEIGHTS = {
 # Data loading
 # ---------------------------------------------------------------------------
 
-def load_season(season: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def _fotmob_dir(league_id: int = DEFAULT_LEAGUE_ID):
+    """Return the FotMob data directory for the given league."""
+    from goals_app.config import FOTMOB_DIRS
+    return FOTMOB_DIRS.get(league_id, FOTMOB_DIRS[DEFAULT_LEAGUE_ID])
+
+
+def load_season(
+    season: str, league_id: int = DEFAULT_LEAGUE_ID
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Load outfield_players, goalkeepers, and fixtures parquets for a season."""
-    base = FOTMOB_DIR / season / "output"
+    base = _fotmob_dir(league_id) / season / "output"
     outfield = pd.read_parquet(base / "outfield_players.parquet")
     gk = pd.read_parquet(base / "goalkeepers.parquet")
     fixtures = pd.read_parquet(base / "fixtures.parquet")
     return outfield, gk, fixtures
 
 
-def load_fixtures_only(season: str) -> pd.DataFrame:
+def load_fixtures_only(season: str, league_id: int = DEFAULT_LEAGUE_ID) -> pd.DataFrame:
     """Load just the fixtures parquet — works even when player parquets don't exist yet."""
-    path = FOTMOB_DIR / season / "output" / "fixtures.parquet"
+    path = _fotmob_dir(league_id) / season / "output" / "fixtures.parquet"
     if not path.exists():
         raise FileNotFoundError(f"No fixtures found for season {season} at {path}")
     return pd.read_parquet(path)
 
 
-def load_multiple_seasons(seasons: list[str]) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def load_multiple_seasons(
+    seasons: list[str], league_id: int = DEFAULT_LEAGUE_ID
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Concatenate outfield, gk, and fixtures across multiple seasons."""
     outfields, gks, fixtures_list = [], [], []
     for s in seasons:
         try:
-            o, g, f = load_season(s)
+            o, g, f = load_season(s, league_id)
             o["season"] = s
             g["season"] = s
             f["season"] = s

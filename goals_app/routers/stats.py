@@ -9,7 +9,7 @@ from fastapi import APIRouter, Query, HTTPException
 from typing import Optional
 import pandas as pd
 
-from goals_app.config import TEST_SEASON
+from goals_app.config import TEST_SEASON, DEFAULT_LEAGUE_ID
 from goals_app.services.feature_service import (
     load_season,
     compute_outfield_composite,
@@ -24,10 +24,11 @@ router = APIRouter()
 @router.get("/players")
 async def get_players(
     season: str = Query(default=TEST_SEASON),
+    league_id: int = Query(default=DEFAULT_LEAGUE_ID),
     position: str = Query(default="all"),
     search: Optional[str] = Query(default=None),
 ):
-    outfield_df, gk_df, _ = load_season(season)
+    outfield_df, gk_df, _ = load_season(season, league_id)
 
     # Compute composite scores (fit scaler on the season data — for display only)
     outfield_scored, _ = compute_outfield_composite(outfield_df)
@@ -118,6 +119,7 @@ async def get_players(
 async def get_player_radar(
     player_id: str,
     season: str = Query(default=TEST_SEASON),
+    league_id: int = Query(default=DEFAULT_LEAGUE_ID),
 ):
     """
     Return season-averaged metric contributions for a player, suitable for a radar chart.
@@ -125,7 +127,7 @@ async def get_player_radar(
     averaged across all matches in the season).
     """
     try:
-        outfield_df, gk_df, _ = load_season(season)
+        outfield_df, gk_df, _ = load_season(season, league_id)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail=f"Season {season} not found")
 

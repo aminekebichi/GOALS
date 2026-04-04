@@ -7,7 +7,7 @@ from fastapi import APIRouter, Query, HTTPException
 from typing import Optional
 import pandas as pd
 
-from goals_app.config import TEST_SEASON
+from goals_app.config import TEST_SEASON, DEFAULT_LEAGUE_ID, LEAGUE_MAP
 from goals_app.services.feature_service import (
     load_season,
     load_fixtures_only,
@@ -22,17 +22,17 @@ from goals_app.services import ml_service
 router = APIRouter()
 
 
-def _load_fixtures(season: str) -> pd.DataFrame:
+def _load_fixtures(season: str, league_id: int = DEFAULT_LEAGUE_ID) -> pd.DataFrame:
     """
     Load fixtures for a season. Falls back to fixtures-only parquet when
     player data hasn't been scraped yet (e.g. future seasons).
     """
     try:
-        outfield, _, fixtures = load_season(season)
+        outfield, _, fixtures = load_season(season, league_id)
         df = derive_match_results(outfield, fixtures)
     except FileNotFoundError:
         # Player parquets not available — use raw fixtures if present
-        df = load_fixtures_only(season)
+        df = load_fixtures_only(season, league_id)
 
     df["round"] = pd.to_numeric(df["round"], errors="coerce")
     return df
@@ -41,11 +41,12 @@ def _load_fixtures(season: str) -> pd.DataFrame:
 @router.get("/matches")
 async def get_matches(
     season: str = Query(default=TEST_SEASON),
+    league_id: int = Query(default=DEFAULT_LEAGUE_ID),
     from_round: Optional[int] = Query(default=None),
     to_round: Optional[int] = Query(default=None),
 ):
     try:
-        fixtures = _load_fixtures(season)
+        fixtures = _load_fixtures(season, league_id)
     except FileNotFoundError:
         return {"matches": []}
 
@@ -105,9 +106,10 @@ async def get_matches(
 async def get_match_players(
     match_id: str,
     season: str = Query(default=TEST_SEASON),
+    league_id: int = Query(default=DEFAULT_LEAGUE_ID),
 ):
     try:
-        outfield_df, gk_df, _ = load_season(season)
+        outfield_df, gk_df, _ = load_season(season, league_id)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail=f"Season {season} not found")
 
@@ -169,6 +171,7 @@ async def get_match_players(
 async def get_team_form(
     team_name: str = Query(..., description="Exact or partial team name to look up"),
     season: str = Query(default=TEST_SEASON),
+    league_id: int = Query(default=DEFAULT_LEAGUE_ID),
     last_n: int = Query(default=5, ge=1, le=38),
 ):
     """
@@ -176,7 +179,7 @@ async def get_team_form(
     Useful for displaying a form guide strip in the UI.
     """
     try:
-        fixtures = _load_fixtures(season)
+        fixtures = _load_fixtures(season, league_id)
     except FileNotFoundError:
         return {"team_name": team_name, "season": season, "form": []}
 
