@@ -136,21 +136,21 @@ class TestTryJsonApi:
         matches = _sample_matches()
         mock_resp = _mock_response(json_data={"fixtures": {"allMatches": matches}})
         with patch("goals_app.services.scraper_service.requests.get", return_value=mock_resp):
-            result = _try_json_api(87, "2024/2025")
+            result = _try_json_api(47, "2024/2025")
         assert result == matches
 
     def test_returns_matches_from_allMatches_key(self):
         matches = _sample_matches()
         mock_resp = _mock_response(json_data={"allMatches": matches})
         with patch("goals_app.services.scraper_service.requests.get", return_value=mock_resp):
-            result = _try_json_api(87, "2024/2025")
+            result = _try_json_api(47, "2024/2025")
         assert result == matches
 
     def test_returns_matches_from_matches_allMatches_key(self):
         matches = _sample_matches()
         mock_resp = _mock_response(json_data={"matches": {"allMatches": matches}})
         with patch("goals_app.services.scraper_service.requests.get", return_value=mock_resp):
-            result = _try_json_api(87, "2024/2025")
+            result = _try_json_api(47, "2024/2025")
         assert result == matches
 
     def test_falls_back_to_no_season_param_when_empty_response(self):
@@ -162,7 +162,7 @@ class TestTryJsonApi:
             "goals_app.services.scraper_service.requests.get",
             side_effect=[resp_empty, resp_with],
         ):
-            result = _try_json_api(87, "2024/2025")
+            result = _try_json_api(47, "2024/2025")
         assert result == matches
 
     def test_returns_none_on_network_exception(self):
@@ -170,7 +170,7 @@ class TestTryJsonApi:
             "goals_app.services.scraper_service.requests.get",
             side_effect=requests.exceptions.ConnectionError("down"),
         ):
-            result = _try_json_api(87, "2024/2025")
+            result = _try_json_api(47, "2024/2025")
         assert result is None
 
     def test_returns_none_when_both_responses_empty(self):
@@ -179,7 +179,7 @@ class TestTryJsonApi:
             "goals_app.services.scraper_service.requests.get",
             side_effect=[resp_empty, resp_empty],
         ):
-            result = _try_json_api(87, "2024/2025")
+            result = _try_json_api(47, "2024/2025")
         assert result is None
 
 
@@ -192,13 +192,13 @@ class TestTryHtmlPage:
         matches = _sample_matches()
         mock_resp = _mock_response(text=_make_next_data_html(matches))
         with patch("goals_app.services.scraper_service.requests.get", return_value=mock_resp):
-            result = _try_html_page(87, "2024/2025", "laliga")
+            result = _try_html_page(47, "2024/2025", "premier-league")
         assert result == matches
 
     def test_returns_none_when_no_next_data_tag(self):
         mock_resp = _mock_response(text="<html><body><p>No data here</p></body></html>")
         with patch("goals_app.services.scraper_service.requests.get", return_value=mock_resp):
-            result = _try_html_page(87, "2024/2025", "laliga")
+            result = _try_html_page(47, "2024/2025", "premier-league")
         assert result is None
 
     def test_returns_none_on_network_exception(self):
@@ -206,7 +206,7 @@ class TestTryHtmlPage:
             "goals_app.services.scraper_service.requests.get",
             side_effect=Exception("network error"),
         ):
-            result = _try_html_page(87, "2024/2025", "laliga")
+            result = _try_html_page(47, "2024/2025", "premier-league")
         assert result is None
 
     def test_returns_none_when_next_data_has_no_fixtures(self):
@@ -214,7 +214,7 @@ class TestTryHtmlPage:
         html = f'<html><body><script id="__NEXT_DATA__">{next_data}</script></body></html>'
         mock_resp = _mock_response(text=html)
         with patch("goals_app.services.scraper_service.requests.get", return_value=mock_resp):
-            result = _try_html_page(87, "2024/2025", "laliga")
+            result = _try_html_page(47, "2024/2025", "premier-league")
         assert result is None
 
     def test_uses_correct_url_format(self):
@@ -222,9 +222,9 @@ class TestTryHtmlPage:
         with patch(
             "goals_app.services.scraper_service.requests.get", return_value=mock_resp
         ) as mock_get:
-            _try_html_page(87, "2024/2025", "laliga")
+            _try_html_page(47, "2024/2025", "premier-league")
         called_url = mock_get.call_args[0][0]
-        assert "leagues/87" in called_url
+        assert "leagues/47" in called_url
         assert "laliga" in called_url
 
 
@@ -239,7 +239,7 @@ class TestScrapeFixtures:
             patch("goals_app.services.scraper_service._try_json_api", return_value=matches),
             patch("goals_app.services.scraper_service.FOTMOB_DIR", tmp_path),
         ):
-            result = scrape_fixtures(87, "2024_2025")
+            result = scrape_fixtures(47, "2024_2025")
         assert isinstance(result, pd.DataFrame)
 
     def test_correct_row_count(self, tmp_path):
@@ -248,7 +248,7 @@ class TestScrapeFixtures:
             patch("goals_app.services.scraper_service._try_json_api", return_value=matches),
             patch("goals_app.services.scraper_service.FOTMOB_DIR", tmp_path),
         ):
-            result = scrape_fixtures(87, "2024_2025")
+            result = scrape_fixtures(47, "2024_2025")
         assert len(result) == len(matches)
 
     def test_has_required_columns(self, tmp_path):
@@ -257,7 +257,7 @@ class TestScrapeFixtures:
             patch("goals_app.services.scraper_service._try_json_api", return_value=matches),
             patch("goals_app.services.scraper_service.FOTMOB_DIR", tmp_path),
         ):
-            result = scrape_fixtures(87, "2024_2025")
+            result = scrape_fixtures(47, "2024_2025")
         required = {"match_id", "round", "match_date", "finished",
                     "home_team", "away_team", "home_id", "away_id"}
         assert required.issubset(set(result.columns))
@@ -268,7 +268,7 @@ class TestScrapeFixtures:
             patch("goals_app.services.scraper_service._try_json_api", return_value=matches),
             patch("goals_app.services.scraper_service.FOTMOB_DIR", tmp_path),
         ):
-            scrape_fixtures(87, "2024_2025")
+            scrape_fixtures(47, "2024_2025")
         parquet_path = tmp_path / "2024_2025" / "output" / "fixtures.parquet"
         assert parquet_path.exists()
 
@@ -278,7 +278,7 @@ class TestScrapeFixtures:
             patch("goals_app.services.scraper_service._try_json_api", return_value=matches),
             patch("goals_app.services.scraper_service.FOTMOB_DIR", tmp_path),
         ):
-            scrape_fixtures(87, "2024_2025")
+            scrape_fixtures(47, "2024_2025")
         parquet_path = tmp_path / "2024_2025" / "output" / "fixtures.parquet"
         loaded = pd.read_parquet(parquet_path)
         assert len(loaded) == len(matches)
@@ -289,7 +289,7 @@ class TestScrapeFixtures:
             patch("goals_app.services.scraper_service._try_json_api", return_value=matches),
             patch("goals_app.services.scraper_service.FOTMOB_DIR", tmp_path),
         ):
-            result = scrape_fixtures(87, "2024_2025")
+            result = scrape_fixtures(47, "2024_2025")
         assert result["finished"].iloc[0] == True
         assert result["finished"].iloc[1] == False
 
@@ -299,7 +299,7 @@ class TestScrapeFixtures:
             patch("goals_app.services.scraper_service._try_json_api", return_value=matches),
             patch("goals_app.services.scraper_service.FOTMOB_DIR", tmp_path),
         ):
-            result = scrape_fixtures(87, "2024_2025")
+            result = scrape_fixtures(47, "2024_2025")
         assert "Real Madrid" in result["home_team"].values
         assert "Barcelona" in result["away_team"].values
 
@@ -311,7 +311,7 @@ class TestScrapeFixtures:
             patch("goals_app.services.scraper_service.time.sleep"),
             patch("goals_app.services.scraper_service.FOTMOB_DIR", tmp_path),
         ):
-            result = scrape_fixtures(87, "2024_2025")
+            result = scrape_fixtures(47, "2024_2025")
         assert len(result) == len(matches)
 
     def test_sleep_called_between_json_and_html_fallback(self, tmp_path):
@@ -322,7 +322,7 @@ class TestScrapeFixtures:
             patch("goals_app.services.scraper_service.time.sleep") as mock_sleep,
             patch("goals_app.services.scraper_service.FOTMOB_DIR", tmp_path),
         ):
-            scrape_fixtures(87, "2024_2025")
+            scrape_fixtures(47, "2024_2025")
         mock_sleep.assert_called_once()
 
     def test_raises_runtime_error_when_both_sources_fail(self, tmp_path):
@@ -333,19 +333,19 @@ class TestScrapeFixtures:
             patch("goals_app.services.scraper_service.FOTMOB_DIR", tmp_path),
         ):
             with pytest.raises(RuntimeError, match="Could not fetch fixtures"):
-                scrape_fixtures(87, "2024_2025")
+                scrape_fixtures(47, "2024_2025")
 
-    def test_uses_laliga_slug_for_league_87(self, tmp_path):
+    def test_uses_premier_league_slug_for_league_47(self, tmp_path):
         matches = _sample_matches()
         with (
             patch("goals_app.services.scraper_service._try_json_api", return_value=matches) as mock_json,
             patch("goals_app.services.scraper_service.FOTMOB_DIR", tmp_path),
         ):
-            scrape_fixtures(87, "2024_2025")
-        mock_json.assert_called_once_with(87, "2024/2025")
+            scrape_fixtures(47, "2024_2025")
+        mock_json.assert_called_once_with(47, "2024/2025")
 
-    def test_unknown_league_defaults_to_laliga_slug(self, tmp_path):
-        """LEAGUE_SLUGS.get(999, 'laliga') should fall back to 'laliga'."""
+    def test_unknown_league_defaults_to_premier_league_slug(self, tmp_path):
+        """LEAGUE_SLUGS.get(999, 'premier-league') should fall back to 'premier-league'."""
         matches = _sample_matches()
         with (
             patch("goals_app.services.scraper_service._try_json_api", return_value=None),
@@ -354,9 +354,9 @@ class TestScrapeFixtures:
             patch("goals_app.services.scraper_service.FOTMOB_DIR", tmp_path),
         ):
             scrape_fixtures(999, "2024_2025")
-        # slug arg to _try_html_page should be "laliga" (the default fallback)
+        # slug arg to _try_html_page should be "premier-league" (the default fallback)
         _, _, slug = mock_html.call_args[0]
-        assert slug == "laliga"
+        assert slug == "premier-league"
 
     def test_match_date_is_datetime(self, tmp_path):
         matches = _sample_matches()
@@ -364,7 +364,7 @@ class TestScrapeFixtures:
             patch("goals_app.services.scraper_service._try_json_api", return_value=matches),
             patch("goals_app.services.scraper_service.FOTMOB_DIR", tmp_path),
         ):
-            result = scrape_fixtures(87, "2024_2025")
+            result = scrape_fixtures(47, "2024_2025")
         assert pd.api.types.is_datetime64_any_dtype(result["match_date"])
 
     # ------------------------------------------------------------------
@@ -391,7 +391,7 @@ class TestScrapeFixtures:
             patch("goals_app.services.scraper_service._try_json_api", return_value=matches),
             patch("goals_app.services.scraper_service.FOTMOB_DIR", tmp_path),
         ):
-            result = scrape_fixtures(87, "2024_2025")
+            result = scrape_fixtures(47, "2024_2025")
         assert pd.api.types.is_integer_dtype(result["home_id"]), (
             f"home_id dtype is {result['home_id'].dtype} — expected integer"
         )
@@ -405,14 +405,17 @@ class TestScrapeFixtures:
 # ---------------------------------------------------------------------------
 
 class TestLeagueSlugs:
-    def test_laliga_id_present(self):
-        assert 87 in LEAGUE_SLUGS
-
     def test_premier_league_id_present(self):
         assert 47 in LEAGUE_SLUGS
 
+    def test_laliga_id_present(self):
+        assert 87 in LEAGUE_SLUGS
+
     def test_bundesliga_id_present(self):
         assert 54 in LEAGUE_SLUGS
+
+    def test_premier_league_slug_value(self):
+        assert LEAGUE_SLUGS[47] == "premier-league"
 
     def test_laliga_slug_value(self):
         assert LEAGUE_SLUGS[87] == "laliga"

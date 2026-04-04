@@ -81,7 +81,7 @@ The issues were created with body text generated from the CLAUDE.md ML spec — 
 
 **Hooks:**
 - A `pre-commit` hook that runs a lightweight check for the pattern `train_test_split` with `shuffle=True` — our biggest ML safety risk. If found, block the commit with a message: "Temporal split required — never shuffle match data."
-- A `post-tool-call` hook on file writes to `data/` that warns if any file outside `data/87/*/raw/` or `data/87/*/output/` is being written (enforces read-only constraint at the tooling level).
+- A `post-tool-call` hook on file writes to `data/` that warns if any file outside `data/47/*/raw/` or `data/47/*/output/` is being written (enforces read-only constraint at the tooling level).
 
 **Sub-agents:**
 - A parallel notebook execution agent: given a list of notebook numbers, launch one sub-agent per notebook, each with its own context window, and aggregate results (RMSE, accuracy, confusion matrix) into a summary table. The six notebooks are independent enough that this would cut total ML pipeline execution time significantly.

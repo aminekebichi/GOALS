@@ -111,10 +111,9 @@ GOALS/
 │   └── vite.config.js               # Proxies /api → localhost:8000 in dev
 │
 ├── data/                            # READ-ONLY by the app
-│   ├── FBref/la_liga/{season}/      # standard.csv, shooting.csv, misc.csv, goalkeeping.csv, playing_time.csv
-│   ├── FBref/premier_league/{season}/
-│   ├── 47/2024_2025/output/         # FotMob Premier League — reference only
-│   └── 87/{season}/                 # FotMob La Liga — scraped per season
+│   ├── FBref/premier_league/{season}/ # standard.csv, shooting.csv, misc.csv, goalkeeping.csv, playing_time.csv
+│   ├── FBref/la_liga/{season}/
+│   └── 47/{season}/                 # FotMob Premier League — scraped per season
 │       ├── raw/                     # Cached JSON per match_id
 │       └── output/                  # outfield_players.parquet, goalkeepers.parquet, fixtures.parquet
 │
@@ -256,7 +255,7 @@ Always use `class_weight='balanced'` for classifiers (La Liga: ~45-50% home wins
 4. **Player name mismatches** — FBref uses accented names; FotMob may differ. `rapidfuzz` threshold ≥ 85.
 5. **FBref is season-level, FotMob is match-level** — FBref stats are contextual features; FotMob stats drive per-match composite scores.
 6. **`fotmob_final.ipynb` is untouched** — scraper logic is extracted into `scraper_service.py`; original notebook is never modified.
-7. **`data/` is read-only** by the app — only `scraper_service.py` writes new parquet files under `data/87/`.
+7. **`data/` is read-only** by the app — only `scraper_service.py` writes new parquet files under `data/47/`.
 8. **`goals_app/ml/artifacts/` is git-ignored** — models are regenerated locally via the Settings page.
 
 ---
@@ -287,10 +286,10 @@ Defined in `frontend/src/app.css`:
 | FBref | La Liga | 2021–2025 | ✅ Complete |
 | FBref | Premier League | 2021–2025 | ✅ Complete |
 | FBref | Bundesliga | 2021–2025 | ✅ Complete |
-| FotMob | Premier League (47) | 2024/25 | ✅ Complete (reference) |
-| FotMob | La Liga (87) | 2021–2025 | ❌ Not yet scraped |
+| FotMob | Premier League (47) | 2021–2025 | ⏳ Scraping in progress |
+| FotMob | La Liga (87) | — | Not targeted |
 
-To scrape La Liga via notebook: open `fotmob_final.ipynb`, set `LEAGUE_ID=87` and `SEASON='2021/2022'` (repeat for each season). Via app: use the `/scraper` page.
+To scrape Premier League via notebook: open `fotmob_final.ipynb`, set `LEAGUE_ID=47` and `SEASON='2021/2022'` (repeat for each season). Via app: use the `/scraper` page.
 
 ---
 

@@ -235,12 +235,12 @@ These aggregated features serve as the primary inputs to the match outcome class
 ```
 GOALS/
 ├── CLAUDE.md                        # Persistent AI session context
-├── fotmob_final.ipynb               # FotMob scraper (LEAGUE_ID=87 for La Liga)
+├── fotmob_final.ipynb               # FotMob scraper (LEAGUE_ID=47 for Premier League)
 ├── GOALS_notebook.ipynb             # FBref scraper (data already collected)
 ├── data/
 │   ├── FBref/
-│   │   └── la_liga/{season}/        # standard, shooting, misc, goalkeeping, playing_time CSVs
-│   └── 87/{season}/                 # FotMob La Liga output
+│   │   └── premier_league/{season}/ # standard, shooting, misc, goalkeeping, playing_time CSVs
+│   └── 47/{season}/                 # FotMob Premier League output
 │       ├── raw/                     # Cached match JSON (one file per match_id)
 │       └── output/
 │           ├── outfield_players.parquet
@@ -265,14 +265,14 @@ GOALS/
 
 ### FBref (complete)
 
-FBref data for La Liga (plus Premier League and Bundesliga) across all 4 seasons has already been scraped and is stored under `data/FBref/la_liga/`.
+FBref data for Premier League (plus La Liga and Bundesliga) across all 4 seasons has already been scraped and is stored under `data/FBref/premier_league/`.
 
-### FotMob La Liga (run required)
+### FotMob Premier League (run required)
 
 `fotmob_final.ipynb` is production-ready with rate-limiting, HMAC auth, retry logic, and idempotent JSON caching. Run it **4 times** — once per season — with Cell 1 configured as follows:
 
 ```python
-LEAGUE_ID = 87          # La Liga
+LEAGUE_ID = 47          # Premier League
 SEASON    = '2021/2022' # then 2022/2023, 2023/2024, 2024/2025
 ```
 

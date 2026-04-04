@@ -56,7 +56,7 @@ Write a concise plan covering:
 ## Hard Constraints
 
 - **Never** shuffle train/test — always temporal (walk-forward) split
-- **`data/` is read-only** — only `scraper_service.py` may write under `data/87/`
+- **`data/` is read-only** — only `scraper_service.py` may write under `data/47/`
 - **Scaler fit on train only** — never refit on test data; pass scaler as argument to `compute_*` functions
 - **Player name fuzzy match** — `rapidfuzz` threshold ≥ 85
 - **Do not modify** `fotmob_final.ipynb`

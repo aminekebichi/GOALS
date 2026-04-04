@@ -1,7 +1,7 @@
 """
 scraper_service.py
 
-Fetches La Liga fixture lists (played + upcoming) from FotMob.
+Fetches Premier League fixture lists (played + upcoming) from FotMob.
 
 Strategy (tried in order):
   1. FotMob internal JSON API  — fast, no HTML parsing
@@ -127,7 +127,7 @@ def _try_html_page(league_id: int, season_url: str, slug: str) -> list[dict] | N
     return None
 
 
-def scrape_fixtures(league_id: int = 87, season: str = "2024_2025") -> pd.DataFrame:
+def scrape_fixtures(league_id: int = 47, season: str = "2024_2025") -> pd.DataFrame:
     """
     Fetch all fixtures (played + upcoming) for a league/season from FotMob.
 
@@ -137,7 +137,7 @@ def scrape_fixtures(league_id: int = 87, season: str = "2024_2025") -> pd.DataFr
     Columns: match_id, round, page_url, match_date, finished,
              home_team, home_id, away_team, away_id
     """
-    slug = LEAGUE_SLUGS.get(league_id, "laliga")
+    slug = LEAGUE_SLUGS.get(league_id, "premier-league")
     season_url = _season_dir_to_url(season)
 
     # --- Try JSON API first, then HTML fallback ---

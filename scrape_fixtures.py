@@ -1,17 +1,17 @@
 #!/usr/bin/env python
 """
-scrape_fixtures.py — Fetch La Liga fixture list from FotMob.
+scrape_fixtures.py — Fetch Premier League fixture list from FotMob.
 
 Saves all matches (played + upcoming) for a season to:
-  data/87/{season}/output/fixtures.parquet
+  data/47/{season}/output/fixtures.parquet
 
 This is a lightweight scrape — player stats are NOT fetched here.
 Run fotmob_final.ipynb to collect per-match player data.
 
 Usage:
-    python scrape_fixtures.py                         # 2025/26 La Liga (current season)
+    python scrape_fixtures.py                         # 2025/26 Premier League (current season)
     python scrape_fixtures.py --season 2024_2025
-    python scrape_fixtures.py --league 87 --season 2025_2026
+    python scrape_fixtures.py --league 47 --season 2025_2026
 """
 
 import argparse
@@ -25,11 +25,11 @@ from goals_app.services.scraper_service import scrape_fixtures
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Scrape La Liga fixture list from FotMob"
+        description="Scrape Premier League fixture list from FotMob"
     )
     parser.add_argument(
-        "--league", type=int, default=87,
-        help="FotMob league ID (default: 87 = La Liga)",
+        "--league", type=int, default=47,
+        help="FotMob league ID (default: 47 = Premier League)",
     )
     parser.add_argument(
         "--season", default="2025_2026",
