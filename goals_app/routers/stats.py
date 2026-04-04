@@ -5,7 +5,7 @@ Returns player composite scores for a given season, filtered by position.
 Includes per-metric contributions for the breakdown panel.
 """
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
 from typing import Optional
 import pandas as pd
 
@@ -15,6 +15,7 @@ from goals_app.services.feature_service import (
     compute_outfield_composite,
     compute_gk_composite,
     get_player_metric_contributions,
+    get_player_raw_stats,
 )
 
 router = APIRouter()
@@ -111,3 +112,56 @@ async def get_players(
         })
 
     return {"players": players}
+
+
+@router.get("/players/{player_id}/radar")
+async def get_player_radar(
+    player_id: str,
+    season: str = Query(default=TEST_SEASON),
+):
+    """
+    Return season-averaged metric contributions for a player, suitable for a radar chart.
+    Contributions are weighted z-scores (same values shown in the breakdown panel but
+    averaged across all matches in the season).
+    """
+    try:
+        outfield_df, gk_df, _ = load_season(season)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Season {season} not found")
+
+    outfield_scored, _ = compute_outfield_composite(outfield_df)
+    gk_scored, _ = compute_gk_composite(gk_df)
+
+    # Determine which df contains this player
+    def _find_player(df: pd.DataFrame) -> Optional[pd.Series]:
+        match = df[df["player_id"].astype(str) == player_id]
+        if match.empty:
+            return None
+        z_cols = [c for c in match.columns if c.endswith("_z")]
+        return match[z_cols + ["player_name", "team_name", "position_group"]].mean(numeric_only=True), match.iloc[0]
+
+    result = _find_player(outfield_scored)
+    is_gk = False
+    if result is None:
+        gk_match = gk_scored[gk_scored["player_id"].astype(str) == player_id]
+        if gk_match.empty:
+            raise HTTPException(status_code=404, detail=f"Player {player_id} not found in season {season}")
+        z_cols = [c for c in gk_match.columns if c.endswith("_z")]
+        mean_z = gk_match[z_cols].mean()
+        sample_row = gk_match.iloc[0]
+        position = "GK"
+        is_gk = True
+    else:
+        mean_z, sample_row = result
+        position = str(sample_row.get("position_group", "MID"))
+
+    contributions = get_player_metric_contributions(mean_z, position)
+
+    return {
+        "player_id": player_id,
+        "player_name": str(sample_row.get("player_name", "")),
+        "team_name": str(sample_row.get("team_name", "")),
+        "position": position,
+        "season": season,
+        "radar": contributions,
+    }

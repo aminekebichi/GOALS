@@ -163,3 +163,78 @@ async def get_match_players(
         p["is_motm"] = p["player_id"] == motm_id
 
     return {"match_id": match_id, "players": players, "motm": motm}
+
+
+@router.get("/teams/form")
+async def get_team_form(
+    team_name: str = Query(..., description="Exact or partial team name to look up"),
+    season: str = Query(default=TEST_SEASON),
+    last_n: int = Query(default=5, ge=1, le=38),
+):
+    """
+    Return last N match results (W/D/L) for a given team, from the home team's perspective.
+    Useful for displaying a form guide strip in the UI.
+    """
+    try:
+        fixtures = _load_fixtures(season)
+    except FileNotFoundError:
+        return {"team_name": team_name, "season": season, "form": []}
+
+    # Match both home and away appearances case-insensitively
+    team_lower = team_name.lower()
+    home_mask = fixtures["home_team"].str.lower().str.contains(team_lower, na=False)
+    away_mask = fixtures["away_team"].str.lower().str.contains(team_lower, na=False)
+    team_fixtures = fixtures[home_mask | away_mask].copy()
+
+    # Keep only finished matches that have result data
+    if "result" in team_fixtures.columns:
+        team_fixtures = team_fixtures[team_fixtures["result"].notna()]
+    elif "home_goals" in team_fixtures.columns:
+        team_fixtures = team_fixtures[team_fixtures["home_goals"].notna()]
+    else:
+        return {"team_name": team_name, "season": season, "form": []}
+
+    team_fixtures = team_fixtures.sort_values(["round", "match_date"]).tail(last_n)
+
+    form = []
+    for _, row in team_fixtures.iterrows():
+        is_home = str(row.get("home_team", "")).lower().find(team_lower) >= 0
+
+        if "result" in row and pd.notna(row["result"]):
+            home_result = row["result"]  # W/D/L from home perspective
+        else:
+            hg = row.get("home_goals", 0) or 0
+            ag = row.get("away_goals", 0) or 0
+            if hg > ag:
+                home_result = "W"
+            elif hg < ag:
+                home_result = "L"
+            else:
+                home_result = "D"
+
+        # Flip result if team was playing away
+        if not is_home:
+            home_result = {"W": "L", "L": "W", "D": "D"}[home_result]
+
+        match_date = row.get("match_date", None)
+        if pd.notna(match_date):
+            match_date = str(match_date)[:10]
+
+        form.append({
+            "match_id": str(row.get("match_id", "")),
+            "match_date": match_date,
+            "round": int(row["round"]) if pd.notna(row.get("round")) else None,
+            "home_team": row.get("home_team"),
+            "away_team": row.get("away_team"),
+            "home_score": int(row["home_goals"]) if "home_goals" in row and pd.notna(row.get("home_goals")) else None,
+            "away_score": int(row["away_goals"]) if "away_goals" in row and pd.notna(row.get("away_goals")) else None,
+            "result": home_result,  # W/D/L from the requested team's perspective
+        })
+
+    resolved_name = (
+        team_fixtures.iloc[0]["home_team"]
+        if not team_fixtures.empty and str(team_fixtures.iloc[0].get("home_team", "")).lower().find(team_lower) >= 0
+        else team_fixtures.iloc[0]["away_team"] if not team_fixtures.empty else team_name
+    )
+
+    return {"team_name": resolved_name, "season": season, "form": form}
