@@ -47,6 +47,17 @@
 
   let seasons = makeSeasonState(LEAGUE_CONFIG[leagueId].seasons);
 
+  // Upcoming section state
+  let upcomingExpanded = true;
+  let upcomingVisible = PAGE_SIZE;
+
+  // Aggregate all upcoming matches across seasons, sorted by date
+  $: allUpcoming = seasons
+    .flatMap(s => s.upcomingMatches)
+    .sort((a, b) => new Date(a.match_date) - new Date(b.match_date));
+
+  $: upcomingLoading = seasons.some(s => s.loading);
+
   let selectedMatchId = null;
   let selectedMatchSeason = null;
 
@@ -105,7 +116,11 @@
     }
   }
 
-  function showMore(idx) {
+  function showMoreUpcoming() {
+    upcomingVisible += PAGE_SIZE;
+  }
+
+  function showMorePast(idx) {
     seasons[idx] = { ...seasons[idx], visibleCount: seasons[idx].visibleCount + PAGE_SIZE };
     seasons = [...seasons];
   }
@@ -133,6 +148,7 @@
     leagueId = id;
     selectedMatchId = null;
     selectedMatchSeason = null;
+    upcomingVisible = PAGE_SIZE;
     seasons = makeSeasonState(LEAGUE_CONFIG[id].seasons);
     seasons.forEach((_, i) => loadSeason(i));
   }
@@ -156,6 +172,50 @@
     {/each}
   </div>
 
+  <!-- Upcoming Fixtures -->
+  <div class="season-section">
+    <button class="season-divider" on:click={() => (upcomingExpanded = !upcomingExpanded)}>
+      <span class="divider-line" />
+      <span class="divider-label upcoming-label">
+        <span class="divider-chevron" class:open={upcomingExpanded}>›</span>
+        Upcoming Fixtures
+        {#if upcomingLoading}
+          <span class="divider-count">…</span>
+        {:else}
+          <span class="divider-count">{allUpcoming.length}</span>
+        {/if}
+      </span>
+      <span class="divider-line" />
+    </button>
+
+    {#if upcomingExpanded}
+      {#if upcomingLoading && allUpcoming.length === 0}
+        <div class="state-msg">Loading…</div>
+      {:else if allUpcoming.length === 0}
+        <div class="state-msg">No upcoming fixtures.</div>
+      {:else}
+        <div class="match-list">
+          {#each allUpcoming.slice(0, upcomingVisible) as match}
+            <div class="match-wrap">
+              <MatchCard
+                {match}
+                selected={false}
+                on:click={() => {}}
+              />
+            </div>
+          {/each}
+        </div>
+
+        {#if upcomingVisible < allUpcoming.length}
+          <button class="show-more" on:click={showMoreUpcoming}>
+            Show more
+          </button>
+        {/if}
+      {/if}
+    {/if}
+  </div>
+
+  <!-- Season sections (past matches only) -->
   {#each seasons as season, idx}
     <div class="season-section">
       <button class="season-divider" on:click={() => toggleSeason(idx)}>
@@ -164,7 +224,7 @@
           <span class="divider-chevron" class:open={season.expanded}>›</span>
           {season.label}
           {#if season.loaded}
-            <span class="divider-count">{season.upcomingMatches.length + season.pastMatches.length}</span>
+            <span class="divider-count">{season.pastMatches.length}</span>
           {:else if season.loading}
             <span class="divider-count">…</span>
           {/if}
@@ -188,61 +248,35 @@
           </div>
         {:else if season.loading}
           <div class="state-msg">Loading…</div>
-        {:else if season.upcomingMatches.length === 0 && season.pastMatches.length === 0}
-          <div class="state-msg">No matches found.</div>
+        {:else if season.pastMatches.length === 0}
+          <div class="state-msg">No results yet this season.</div>
         {:else}
-
-          <!-- Upcoming fixtures -->
-          {#if season.upcomingMatches.length > 0}
-            <div class="subsection-header">Upcoming</div>
-            <div class="match-list">
-              {#each season.upcomingMatches as match}
-                <div class="match-wrap">
-                  <MatchCard
-                    {match}
-                    selected={false}
-                    on:click={() => {}}
+          <div class="match-list">
+            {#each season.pastMatches.slice(0, season.visibleCount) as match}
+              <div class="match-wrap">
+                <MatchCard
+                  {match}
+                  selected={match.match_id === selectedMatchId}
+                  on:click={() => selectMatch(match.match_id, season.id)}
+                />
+                {#if match.match_id === selectedMatchId && selectedMatchSeason === season.id}
+                  <MatchDetail
+                    matchId={selectedMatchId}
+                    season={selectedMatchSeason}
+                    {leagueId}
+                    homeTeam={match.home_team}
+                    awayTeam={match.away_team}
                   />
-                </div>
-              {/each}
-            </div>
+                {/if}
+              </div>
+            {/each}
+          </div>
 
-            {#if season.pastMatches.length > 0}
-              <div class="subsection-header past-header">Results</div>
-            {/if}
+          {#if season.visibleCount < season.pastMatches.length}
+            <button class="show-more" on:click={() => showMorePast(idx)}>
+              Show more
+            </button>
           {/if}
-
-          <!-- Past matches (paginated) -->
-          {#if season.pastMatches.length > 0}
-            <div class="match-list">
-              {#each season.pastMatches.slice(0, season.visibleCount) as match}
-                <div class="match-wrap">
-                  <MatchCard
-                    {match}
-                    selected={match.match_id === selectedMatchId}
-                    on:click={() => selectMatch(match.match_id, season.id)}
-                  />
-                  {#if match.match_id === selectedMatchId && selectedMatchSeason === season.id}
-                    <MatchDetail
-                      matchId={selectedMatchId}
-                      season={selectedMatchSeason}
-                      {leagueId}
-                      homeTeam={match.home_team}
-                      awayTeam={match.away_team}
-                    />
-                  {/if}
-                </div>
-              {/each}
-            </div>
-
-            {#if season.visibleCount < season.pastMatches.length}
-              <button class="show-more" on:click={() => showMore(idx)}>
-                Show {Math.min(PAGE_SIZE, season.pastMatches.length - season.visibleCount)} more
-                <span class="show-more-total">({season.pastMatches.length - season.visibleCount} remaining)</span>
-              </button>
-            {/if}
-          {/if}
-
         {/if}
       {/if}
     </div>
@@ -334,6 +368,14 @@
     transition: color 0.15s;
   }
 
+  .upcoming-label {
+    color: var(--accent-primary);
+  }
+
+  .season-divider:hover .upcoming-label {
+    color: var(--accent-secondary);
+  }
+
   .divider-chevron {
     font-size: 14px;
     font-weight: 300;
@@ -385,21 +427,6 @@
     letter-spacing: 0.5px;
   }
 
-  /* Subsection headers (Upcoming / Results) */
-  .subsection-header {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    color: var(--accent-primary);
-    padding: 10px 0 6px;
-  }
-
-  .past-header {
-    color: var(--text-secondary);
-    margin-top: 8px;
-  }
-
   /* Match list */
   .match-list {
     display: flex;
@@ -414,9 +441,7 @@
 
   /* Show more */
   .show-more {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    display: block;
     width: 100%;
     padding: 12px 0;
     background: none;
@@ -428,16 +453,11 @@
     letter-spacing: 0.5px;
     cursor: pointer;
     transition: color 0.15s;
-    text-align: left;
+    text-align: center;
   }
 
   .show-more:hover {
     color: var(--accent-primary);
-  }
-
-  .show-more-total {
-    font-weight: 400;
-    opacity: 0.6;
   }
 
   .state-msg {
