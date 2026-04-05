@@ -346,7 +346,7 @@ Artifacts are git-ignored and must be regenerated locally before running the app
 | Member | Responsibilities |
 |--------|-----------------|
 | **Amine Kebichi** | Regression modelling, evaluation framework, report writing |
-| **Nathaniel Maw** | Clustering analysis, classification models, visualisation |
+| **Nicholas Annunziata** | Clustering analysis, classification models, visualisation |
 | **Both** | Data preprocessing, EDA, evaluation, presentation |
 
 ---
