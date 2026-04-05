@@ -30,6 +30,10 @@
 
   let leagueId = 47;
 
+  // Session-level predictions cache — keyed by `${leagueId}_${seasonId}`
+  // Persists across league switches so predictions are never re-fetched
+  const predictionsCache = {};
+
   function makeSeasonState(seasonList) {
     return seasonList.map((s, i) => ({
       ...s,
@@ -93,6 +97,23 @@
 
   async function loadPredictions(idx) {
     if (seasons[idx].predictionsLoaded || seasons[idx].predictionsLoading) return;
+
+    const cacheKey = `${leagueId}_${seasons[idx].id}`;
+
+    // Cache hit — apply instantly, no network call
+    if (predictionsCache[cacheKey]) {
+      const predMap = predictionsCache[cacheKey];
+      const patch = m => ({ ...m, prediction: predMap[m.match_id] ?? m.prediction ?? null });
+      seasons[idx] = {
+        ...seasons[idx],
+        upcomingMatches: seasons[idx].upcomingMatches.map(patch),
+        pastMatches: seasons[idx].pastMatches.map(patch),
+        predictionsLoaded: true,
+      };
+      seasons = [...seasons];
+      return;
+    }
+
     seasons[idx] = { ...seasons[idx], predictionsLoading: true };
     seasons = [...seasons];
     try {
@@ -101,6 +122,8 @@
       const data = await res.json();
       const predMap = {};
       for (const p of data.predictions) predMap[p.match_id] = p;
+      // Store in cache before patching
+      predictionsCache[cacheKey] = predMap;
       const patch = m => ({ ...m, prediction: predMap[m.match_id] ?? m.prediction ?? null });
       seasons[idx] = {
         ...seasons[idx],
