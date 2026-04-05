@@ -3,6 +3,8 @@
   import MatchCard from '$lib/components/MatchCard.svelte';
   import MatchDetail from '$lib/components/MatchDetail.svelte';
 
+  const PAGE_SIZE = 5;
+
   const LEAGUE_CONFIG = {
     47: {
       name: 'Premier League',
@@ -28,13 +30,13 @@
 
   let leagueId = 47;
 
-  $: currentLeague = LEAGUE_CONFIG[leagueId];
-
   function makeSeasonState(seasonList) {
     return seasonList.map((s, i) => ({
       ...s,
       expanded: i === 0,
-      matches: [],
+      upcomingMatches: [],
+      pastMatches: [],
+      visibleCount: PAGE_SIZE,
       loading: false,
       loaded: false,
       error: null,
@@ -62,14 +64,19 @@
       const past = data.matches
         .filter(m => m.finished)
         .sort((a, b) => new Date(b.match_date) - new Date(a.match_date));
-      seasons[idx] = { ...seasons[idx], matches: [...upcoming, ...past], loaded: true, error: null };
+      seasons[idx] = {
+        ...seasons[idx],
+        upcomingMatches: upcoming,
+        pastMatches: past,
+        loaded: true,
+        error: null,
+      };
     } catch (e) {
       seasons[idx] = { ...seasons[idx], error: e.message };
     } finally {
       seasons[idx] = { ...seasons[idx], loading: false };
       seasons = [...seasons];
     }
-    // Kick off predictions fetch in background — don't await
     loadPredictions(idx);
   }
 
@@ -81,15 +88,13 @@
       const res = await fetch(`/api/predictions?season=${seasons[idx].id}&league_id=${leagueId}`);
       if (!res.ok) return;
       const data = await res.json();
-      // Build lookup map then patch matches in place
       const predMap = {};
       for (const p of data.predictions) predMap[p.match_id] = p;
+      const patch = m => ({ ...m, prediction: predMap[m.match_id] ?? m.prediction ?? null });
       seasons[idx] = {
         ...seasons[idx],
-        matches: seasons[idx].matches.map(m => ({
-          ...m,
-          prediction: predMap[m.match_id] ?? m.prediction ?? null,
-        })),
+        upcomingMatches: seasons[idx].upcomingMatches.map(patch),
+        pastMatches: seasons[idx].pastMatches.map(patch),
         predictionsLoaded: true,
       };
     } catch (_) {
@@ -98,6 +103,11 @@
       seasons[idx] = { ...seasons[idx], predictionsLoading: false };
       seasons = [...seasons];
     }
+  }
+
+  function showMore(idx) {
+    seasons[idx] = { ...seasons[idx], visibleCount: seasons[idx].visibleCount + PAGE_SIZE };
+    seasons = [...seasons];
   }
 
   function toggleSeason(idx) {
@@ -154,7 +164,7 @@
           <span class="divider-chevron" class:open={season.expanded}>›</span>
           {season.label}
           {#if season.loaded}
-            <span class="divider-count">{season.matches.length}</span>
+            <span class="divider-count">{season.upcomingMatches.length + season.pastMatches.length}</span>
           {:else if season.loading}
             <span class="divider-count">…</span>
           {/if}
@@ -170,38 +180,70 @@
           </div>
         {/if}
 
-        <div class="match-list">
-          {#if season.error}
-            <div class="state-msg error">
-              {season.error.includes('404') || season.error.includes('500')
-                ? 'No data available for this season.'
-                : season.error}
-            </div>
-          {:else if season.loading}
-            <div class="state-msg">Loading…</div>
-          {:else if season.matches.length === 0}
-            <div class="state-msg">No matches found.</div>
-          {:else}
-            {#each season.matches as match}
-              <div class="match-wrap">
-                <MatchCard
-                  {match}
-                  selected={match.match_id === selectedMatchId}
-                  on:click={() => match.finished && selectMatch(match.match_id, season.id)}
-                />
-                {#if match.finished && match.match_id === selectedMatchId && selectedMatchSeason === season.id}
-                  <MatchDetail
-                    matchId={selectedMatchId}
-                    season={selectedMatchSeason}
-                    {leagueId}
-                    homeTeam={match.home_team}
-                    awayTeam={match.away_team}
+        {#if season.error}
+          <div class="state-msg error">
+            {season.error.includes('404') || season.error.includes('500')
+              ? 'No data available for this season.'
+              : season.error}
+          </div>
+        {:else if season.loading}
+          <div class="state-msg">Loading…</div>
+        {:else if season.upcomingMatches.length === 0 && season.pastMatches.length === 0}
+          <div class="state-msg">No matches found.</div>
+        {:else}
+
+          <!-- Upcoming fixtures -->
+          {#if season.upcomingMatches.length > 0}
+            <div class="subsection-header">Upcoming</div>
+            <div class="match-list">
+              {#each season.upcomingMatches as match}
+                <div class="match-wrap">
+                  <MatchCard
+                    {match}
+                    selected={false}
+                    on:click={() => {}}
                   />
-                {/if}
-              </div>
-            {/each}
+                </div>
+              {/each}
+            </div>
+
+            {#if season.pastMatches.length > 0}
+              <div class="subsection-header past-header">Results</div>
+            {/if}
           {/if}
-        </div>
+
+          <!-- Past matches (paginated) -->
+          {#if season.pastMatches.length > 0}
+            <div class="match-list">
+              {#each season.pastMatches.slice(0, season.visibleCount) as match}
+                <div class="match-wrap">
+                  <MatchCard
+                    {match}
+                    selected={match.match_id === selectedMatchId}
+                    on:click={() => selectMatch(match.match_id, season.id)}
+                  />
+                  {#if match.match_id === selectedMatchId && selectedMatchSeason === season.id}
+                    <MatchDetail
+                      matchId={selectedMatchId}
+                      season={selectedMatchSeason}
+                      {leagueId}
+                      homeTeam={match.home_team}
+                      awayTeam={match.away_team}
+                    />
+                  {/if}
+                </div>
+              {/each}
+            </div>
+
+            {#if season.visibleCount < season.pastMatches.length}
+              <button class="show-more" on:click={() => showMore(idx)}>
+                Show {Math.min(PAGE_SIZE, season.pastMatches.length - season.visibleCount)} more
+                <span class="show-more-total">({season.pastMatches.length - season.visibleCount} remaining)</span>
+              </button>
+            {/if}
+          {/if}
+
+        {/if}
       {/if}
     </div>
   {/each}
@@ -315,7 +357,7 @@
     position: relative;
     height: 2px;
     background: var(--bg-tertiary);
-    margin-bottom: 8px;
+    margin-bottom: 12px;
     overflow: hidden;
     border-radius: 1px;
   }
@@ -343,6 +385,21 @@
     letter-spacing: 0.5px;
   }
 
+  /* Subsection headers (Upcoming / Results) */
+  .subsection-header {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent-primary);
+    padding: 10px 0 6px;
+  }
+
+  .past-header {
+    color: var(--text-secondary);
+    margin-top: 8px;
+  }
+
   /* Match list */
   .match-list {
     display: flex;
@@ -353,6 +410,34 @@
   .match-wrap {
     display: flex;
     flex-direction: column;
+  }
+
+  /* Show more */
+  .show-more {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 12px 0;
+    background: none;
+    border: none;
+    border-top: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: color 0.15s;
+    text-align: left;
+  }
+
+  .show-more:hover {
+    color: var(--accent-primary);
+  }
+
+  .show-more-total {
+    font-weight: 400;
+    opacity: 0.6;
   }
 
   .state-msg {
