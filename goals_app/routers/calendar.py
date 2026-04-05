@@ -57,24 +57,9 @@ async def get_matches(
 
     fixtures = fixtures.sort_values(["round", "match_date"]).reset_index(drop=True)
 
-    predictions: dict[str, dict] = {}
-    try:
-        preds = ml_service.predict_all_fixtures(season, league_id)
-        for p in preds:
-            predictions[p["match_id"]] = {
-                "win_prob": p["win_prob"],
-                "draw_prob": p["draw_prob"],
-                "loss_prob": p["loss_prob"],
-            }
-    except FileNotFoundError:
-        pass
-    except Exception:
-        pass
-
     matches = []
     for _, row in fixtures.iterrows():
         mid = str(row["match_id"])
-        pred = predictions.get(mid)
 
         match_date = row.get("match_date", None)
         if pd.notna(match_date):
@@ -96,10 +81,28 @@ async def get_matches(
             "finished": finished,
             "home_score": home_goals if finished else None,
             "away_score": away_goals if finished else None,
-            "prediction": pred,
         })
 
     return {"matches": matches}
+
+
+@router.get("/predictions")
+async def get_predictions(
+    season: str = Query(default=TEST_SEASON),
+    league_id: int = Query(default=DEFAULT_LEAGUE_ID),
+):
+    """
+    Return ML win/draw/loss probabilities for every fixture in a season.
+    Kept as a separate endpoint so the match list can render immediately
+    while predictions are computed in the background.
+    """
+    try:
+        preds = ml_service.predict_all_fixtures(season, league_id)
+    except FileNotFoundError:
+        return {"predictions": []}
+    except Exception:
+        return {"predictions": []}
+    return {"predictions": preds}
 
 
 @router.get("/matches/{match_id}/players")

@@ -7,6 +7,7 @@
     47: {
       name: 'Premier League',
       seasons: [
+        { id: '2025_2026', label: '2025 / 26' },
         { id: '2024_2025', label: '2024 / 25' },
         { id: '2023_2024', label: '2023 / 24' },
         { id: '2022_2023', label: '2022 / 23' },
@@ -37,6 +38,8 @@
       loading: false,
       loaded: false,
       error: null,
+      predictionsLoading: false,
+      predictionsLoaded: false,
     }));
   }
 
@@ -64,6 +67,35 @@
       seasons[idx] = { ...seasons[idx], error: e.message };
     } finally {
       seasons[idx] = { ...seasons[idx], loading: false };
+      seasons = [...seasons];
+    }
+    // Kick off predictions fetch in background — don't await
+    loadPredictions(idx);
+  }
+
+  async function loadPredictions(idx) {
+    if (seasons[idx].predictionsLoaded || seasons[idx].predictionsLoading) return;
+    seasons[idx] = { ...seasons[idx], predictionsLoading: true };
+    seasons = [...seasons];
+    try {
+      const res = await fetch(`/api/predictions?season=${seasons[idx].id}&league_id=${leagueId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      // Build lookup map then patch matches in place
+      const predMap = {};
+      for (const p of data.predictions) predMap[p.match_id] = p;
+      seasons[idx] = {
+        ...seasons[idx],
+        matches: seasons[idx].matches.map(m => ({
+          ...m,
+          prediction: predMap[m.match_id] ?? m.prediction ?? null,
+        })),
+        predictionsLoaded: true,
+      };
+    } catch (_) {
+      // Predictions are best-effort — silently ignore errors
+    } finally {
+      seasons[idx] = { ...seasons[idx], predictionsLoading: false };
       seasons = [...seasons];
     }
   }
@@ -131,6 +163,13 @@
       </button>
 
       {#if season.expanded}
+        {#if season.predictionsLoading}
+          <div class="predictions-bar">
+            <div class="predictions-bar-fill" />
+            <span class="predictions-bar-label">Computing predictions…</span>
+          </div>
+        {/if}
+
         <div class="match-list">
           {#if season.error}
             <div class="state-msg error">
@@ -269,6 +308,39 @@
     font-size: 10px;
     font-weight: 400;
     opacity: 0.6;
+  }
+
+  /* Predictions loading bar */
+  .predictions-bar {
+    position: relative;
+    height: 2px;
+    background: var(--bg-tertiary);
+    margin-bottom: 8px;
+    overflow: hidden;
+    border-radius: 1px;
+  }
+
+  .predictions-bar-fill {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+    animation: slide 1.4s ease-in-out infinite;
+    transform-origin: left;
+  }
+
+  @keyframes slide {
+    0%   { transform: translateX(-100%); }
+    50%  { transform: translateX(0%); }
+    100% { transform: translateX(100%); }
+  }
+
+  .predictions-bar-label {
+    position: absolute;
+    top: 6px;
+    right: 0;
+    font-size: 10px;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
   }
 
   /* Match list */
