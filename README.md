@@ -2,11 +2,11 @@
 
 > *"Given recent player performance trends, what can we expect to happen in the next match?"*
 
-**GOALS** is a multi-stage machine learning pipeline that analyses historical La Liga player statistics to deliver interpretable forecasts of future match outcomes. Rather than recapping what has already happened on the park, this system steps forward and asks the question every manager, pundit, and supporter truly wants answered — then answers it with data.
+**GOALS** is a multi-stage machine learning pipeline that analyses historical player statistics across the Premier League and La Liga to deliver interpretable forecasts of future match outcomes. Rather than recapping what has already happened on the park, this system steps forward and asks the question every manager, pundit, and supporter truly wants answered — then answers it with data.
 
-**Course:** EECE5644 — Introduction to Machine Learning & Pattern Recognition
-**Team:** Amine Kebichi · Nathaniel Maw
-**League:** La Liga — all 20 clubs, 4 seasons (2021/22 – 2024/25)
+**Course:** CS7180 - Vibe Coding
+**Team:** Amine Kebichi · Nicholas Annunziata
+**Leagues:** Premier League · La Liga — 4 seasons each (2021/22 – 2024/25)
 
 ---
 
@@ -69,11 +69,11 @@ FotMob's proprietary per-match player rating acts as an **independent cross-vali
 
 | Property | Value |
 |----------|-------|
-| League | La Liga (Spain's top division) |
-| Clubs | All 20 La Liga sides across seasons in scope |
-| Seasons | 4 (2021/22 – 2024/25) |
-| Matches | ~1,520 total (~380 per season) |
-| Player-match observations | ~20,000–30,000 |
+| Leagues | Premier League (England) · La Liga (Spain) |
+| Clubs | All 20 clubs per league across seasons in scope |
+| Seasons | 4 per league (2021/22 – 2024/25) |
+| Matches | ~1,520 per league (~380 per season) |
+| Player-match observations | ~20,000–30,000 per league |
 | Features per observation | ~40 statistical metrics |
 | Labels | Match outcome: Win / Draw / Loss |
 
@@ -265,18 +265,53 @@ GOALS/
 
 ### FBref (complete)
 
-FBref data for Premier League (plus La Liga and Bundesliga) across all 4 seasons has already been scraped and is stored under `data/FBref/premier_league/`.
+FBref data for both the Premier League and La Liga (plus Bundesliga) across all 4 seasons has already been scraped and is stored under `data/FBref/`.
 
-### FotMob Premier League (run required)
+### FotMob (complete)
 
-`fotmob_final.ipynb` is production-ready with rate-limiting, HMAC auth, retry logic, and idempotent JSON caching. Run it **4 times** — once per season — with Cell 1 configured as follows:
+`fotmob_final.ipynb` is production-ready with rate-limiting, HMAC auth, retry logic, and idempotent JSON caching. Data for both supported leagues has been scraped across all 4 seasons and is stored under `data/{league_id}/`.
+
+| League | FotMob ID | Data path | Status |
+|---|---|---|---|
+| Premier League | `47` | `data/47/{season}/output/` | Complete |
+| La Liga | `87` | `data/87/{season}/output/` | Complete |
+
+To re-scrape or extend to a new season, open `fotmob_final.ipynb` and configure Cell 1:
 
 ```python
-LEAGUE_ID = 47          # Premier League
-SEASON    = '2021/2022' # then 2022/2023, 2023/2024, 2024/2025
+LEAGUE_ID = 47          # 47 = Premier League, 87 = La Liga
+SEASON    = '2024/2025' # target season
 ```
 
 Each run is fully resumable from cached JSON if interrupted.
+
+---
+
+## Training the ML Model
+
+Once all four FotMob seasons are scraped, train the Random Forest classifier from the terminal (activate your venv first):
+
+```bash
+python -c "from goals_app.services.ml_service import train; train()"
+```
+
+This loads the three training seasons (`2021_2022`, `2022_2023`, `2023_2024`), runs walk-forward cross-validation, and saves artifacts to `goals_app/ml/artifacts/`:
+
+| Artifact | Description |
+|---|---|
+| `rf_classifier.pkl` | Trained Random Forest classifier |
+| `outfield_scaler.pkl` | StandardScaler fit on outfield training data |
+| `gk_scaler.pkl` | StandardScaler fit on goalkeeper training data |
+| `metrics.json` | CV fold results + confusion matrix |
+
+Expected CV performance (Premier League):
+
+| CV Fold | Train | Val | Accuracy | Macro F1 |
+|---|---|---|---|---|
+| 1 | 2021/22 | 2022/23 | 90.5% | 89.7% |
+| 2 | 2021/22 + 2022/23 | 2023/24 | 92.9% | 92.7% |
+
+Artifacts are git-ignored and must be regenerated locally before running the app. Re-run training any time new season data is scraped.
 
 ---
 
@@ -289,7 +324,7 @@ Each run is fully resumable from cached JSON if interrupted.
 | **Class imbalance** (~45% home wins, ~25% draws) | `class_weight='balanced'` throughout; macro F1 evaluation |
 | **Sparse minutes for fringe players** | Minimum appearance threshold filter; 20-club × 4-season volume absorbs filtering without significant data loss |
 | **FBref / FotMob name mismatches** | Fuzzy string matching with date-keyed match anchors; unmatched records retained from available source rather than discarded |
-| **Promotion and relegation** | Clubs included only for seasons in which they were a La Liga side; insufficient coverage → excluded from analysis |
+| **Promotion and relegation** | Clubs included only for seasons in which they were in the relevant top division; insufficient coverage → excluded from analysis |
 
 ---
 

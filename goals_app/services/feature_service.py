@@ -518,13 +518,14 @@ def build_season_data(
     seasons: list[str],
     outfield_scaler: Optional[StandardScaler] = None,
     gk_scaler: Optional[StandardScaler] = None,
+    league_id: int = DEFAULT_LEAGUE_ID,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, StandardScaler, StandardScaler]:
     """
     Load seasons, compute composite scores, derive results, aggregate to team level.
     Returns (match_features, player_scores_full, fixtures_with_results,
              fitted_outfield_scaler, fitted_gk_scaler)
     """
-    outfield_df, gk_df, fixtures_df = load_multiple_seasons(seasons)
+    outfield_df, gk_df, fixtures_df = load_multiple_seasons(seasons, league_id)
 
     # Add season column to fixtures if missing
     if "season" not in fixtures_df.columns:

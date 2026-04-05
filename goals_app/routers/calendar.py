@@ -59,7 +59,7 @@ async def get_matches(
 
     predictions: dict[str, dict] = {}
     try:
-        preds = ml_service.predict_all_fixtures(season)
+        preds = ml_service.predict_all_fixtures(season, league_id)
         for p in preds:
             predictions[p["match_id"]] = {
                 "win_prob": p["win_prob"],

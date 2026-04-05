@@ -14,7 +14,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score, f1_score, confusion_matrix
 
-from goals_app.config import ARTIFACTS_DIR, TRAIN_SEASONS, TEST_SEASON, FOTMOB_DIR
+from goals_app.config import ARTIFACTS_DIR, TRAIN_SEASONS, TEST_SEASON, FOTMOB_DIRS, DEFAULT_LEAGUE_ID
 from goals_app.services.feature_service import (
     build_season_data,
     load_season,
@@ -140,7 +140,7 @@ def load_model() -> tuple:
     return clf, outfield_scaler, gk_scaler, metrics
 
 
-def predict_all_fixtures(season: str) -> list[dict]:
+def predict_all_fixtures(season: str, league_id: int = DEFAULT_LEAGUE_ID) -> list[dict]:
     """
     Predict every fixture in a season — both played and unplayed.
 
@@ -175,7 +175,7 @@ def predict_all_fixtures(season: str) -> list[dict]:
     team_avg: dict = {}
 
     try:
-        outfield_df, gk_df, fixtures_df = load_season(season)
+        outfield_df, gk_df, fixtures_df = load_season(season, league_id)
 
         outfield_scored, _ = compute_outfield_composite(outfield_df, outfield_scaler)
         gk_scored, _ = compute_gk_composite(gk_df, gk_scaler)
@@ -219,7 +219,7 @@ def predict_all_fixtures(season: str) -> list[dict]:
     except FileNotFoundError:
         # Player parquets not scraped yet — try fixtures-only
         try:
-            fixtures_df = load_fixtures_only(season)
+            fixtures_df = load_fixtures_only(season, league_id)
         except FileNotFoundError:
             return []  # Nothing to show at all
 
@@ -230,12 +230,12 @@ def predict_all_fixtures(season: str) -> list[dict]:
     try:
         available_train = [
             s for s in TRAIN_SEASONS
-            if (FOTMOB_DIR / s / "output" / "outfield_players.parquet").exists()
+            if (FOTMOB_DIRS[league_id] / s / "output" / "outfield_players.parquet").exists()
             and s != season
         ]
         if available_train:
             _, all_players_train, _, _, _ = build_season_data(
-                available_train, outfield_scaler, gk_scaler
+                available_train, outfield_scaler, gk_scaler, league_id
             )
             fb_pivot = (
                 all_players_train.groupby(["team_id", "position_group"])["composite_score"]
