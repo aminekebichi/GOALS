@@ -20,10 +20,10 @@ vi.mock('@/lib/db', () => ({
   },
 }));
 
-// Mock Clerk auth
+// Mock Clerk auth (v7 async API)
 vi.mock('@clerk/nextjs/server', () => ({
-  auth: vi.fn(() => ({ userId: null })),
+  auth: vi.fn(async () => ({ userId: null })),
   clerkMiddleware: vi.fn(),
   createRouteMatcher: vi.fn(() => () => false),
-  currentUser: vi.fn(() => null),
+  currentUser: vi.fn(async () => null),
 }));
