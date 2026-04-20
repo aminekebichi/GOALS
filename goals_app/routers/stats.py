@@ -12,6 +12,7 @@ import pandas as pd
 from goals_app.config import TEST_SEASON, DEFAULT_LEAGUE_ID
 from goals_app.services.feature_service import (
     load_season,
+    load_precomputed_players,
     compute_outfield_composite,
     compute_gk_composite,
     get_player_metric_contributions,
@@ -28,11 +29,15 @@ async def get_players(
     position: str = Query(default="all"),
     search: Optional[str] = Query(default=None),
 ):
-    outfield_df, gk_df, _ = load_season(season, league_id)
-
-    # Compute composite scores (fit scaler on the season data — for display only)
-    outfield_scored, _ = compute_outfield_composite(outfield_df)
-    gk_scored, _ = compute_gk_composite(gk_df)
+    try:
+        outfield_df, gk_df, _ = load_season(season, league_id)
+        outfield_scored, _ = compute_outfield_composite(outfield_df)
+        gk_scored, _ = compute_gk_composite(gk_df)
+    except FileNotFoundError:
+        try:
+            outfield_scored, gk_scored = load_precomputed_players(season)
+        except FileNotFoundError:
+            return {"players": []}
 
     # Aggregate: sum scores per player across all matches they played
     outfield_agg = (
@@ -128,11 +133,13 @@ async def get_player_radar(
     """
     try:
         outfield_df, gk_df, _ = load_season(season, league_id)
+        outfield_scored, _ = compute_outfield_composite(outfield_df)
+        gk_scored, _ = compute_gk_composite(gk_df)
     except FileNotFoundError:
-        raise HTTPException(status_code=404, detail=f"Season {season} not found")
-
-    outfield_scored, _ = compute_outfield_composite(outfield_df)
-    gk_scored, _ = compute_gk_composite(gk_df)
+        try:
+            outfield_scored, gk_scored = load_precomputed_players(season)
+        except FileNotFoundError:
+            raise HTTPException(status_code=404, detail=f"Season {season} not found")
 
     # Determine which df contains this player
     def _find_player(df: pd.DataFrame) -> Optional[pd.Series]:

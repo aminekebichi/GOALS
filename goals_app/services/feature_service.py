@@ -21,7 +21,10 @@ from pathlib import Path
 from sklearn.preprocessing import StandardScaler
 from typing import Optional
 
-from goals_app.config import FOTMOB_DIRS, DEFAULT_LEAGUE_ID, POSITION_MAP
+from goals_app.config import FOTMOB_DIRS, DEFAULT_LEAGUE_ID, POSITION_MAP, DATA_ROOT
+
+PRECOMPUTED_OUTFIELD = DATA_ROOT / "processed" / "datasets" / "outfield_train_scaled.parquet"
+PRECOMPUTED_GK       = DATA_ROOT / "processed" / "datasets" / "gk_train_scaled.parquet"
 
 
 # ---------------------------------------------------------------------------
@@ -94,6 +97,38 @@ def load_fixtures_only(season: str, league_id: int = DEFAULT_LEAGUE_ID) -> pd.Da
     if not path.exists():
         raise FileNotFoundError(f"No fixtures found for season {season} at {path}")
     return pd.read_parquet(path)
+
+
+def load_precomputed_players(
+    season: str,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Load notebook-produced scaled player parquets (already have composite_score),
+    filter to the requested season, then recompute z-score columns so that
+    get_player_metric_contributions() works for the breakdown panel.
+
+    Returns (outfield_df_with_scores, gk_df_with_scores).
+    Raises FileNotFoundError when the precomputed files don't exist.
+    """
+    if not PRECOMPUTED_OUTFIELD.exists():
+        raise FileNotFoundError(f"Precomputed outfield parquet not found: {PRECOMPUTED_OUTFIELD}")
+
+    of = pd.read_parquet(PRECOMPUTED_OUTFIELD)
+    gk = pd.read_parquet(PRECOMPUTED_GK)
+
+    of = of[of["season"] == season].copy()
+    gk = gk[gk["season"] == season].copy()
+
+    if of.empty and gk.empty:
+        raise FileNotFoundError(f"No precomputed player data for season '{season}'")
+
+    # Recompute z-scores on the season slice so metric_contributions work.
+    # composite_score from the parquet is overwritten here but the ranking
+    # order is preserved — z-scores are relative within the season either way.
+    of, _ = compute_outfield_composite(of)
+    gk, _ = compute_gk_composite(gk)
+
+    return of, gk
 
 
 def load_multiple_seasons(
