@@ -14,7 +14,13 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score, f1_score, confusion_matrix
 
-from goals_app.config import ARTIFACTS_DIR, TRAIN_SEASONS, TEST_SEASON, FOTMOB_DIRS, DEFAULT_LEAGUE_ID
+from goals_app.config import ARTIFACTS_DIR, TRAIN_SEASONS, TEST_SEASON, FOTMOB_DIRS, DEFAULT_LEAGUE_ID, DATA_ROOT
+
+# Pre-computed predictions produced by notebooks/07_classification.ipynb
+PRECOMPUTED_PREDICTIONS = DATA_ROOT / "processed" / "datasets" / "match_predictions_test.parquet"
+# Best classifier artifact from notebooks (used for live inference on new seasons)
+NOTEBOOK_CLF = DATA_ROOT / "models" / "classification" / "classifier_randomforest_raw.pkl"
+NOTEBOOK_IMPUTE = DATA_ROOT / "models" / "classification" / "impute_means_match.pkl"
 from goals_app.services.feature_service import (
     build_season_data,
     load_season,
@@ -34,6 +40,31 @@ ARTIFACT_CLF = ARTIFACTS_DIR / "rf_classifier.pkl"
 ARTIFACT_OUTFIELD_SCALER = ARTIFACTS_DIR / "outfield_scaler.pkl"
 ARTIFACT_GK_SCALER = ARTIFACTS_DIR / "gk_scaler.pkl"
 ARTIFACT_METRICS = ARTIFACTS_DIR / "metrics.json"
+
+
+def load_precomputed_predictions(season: str) -> list[dict]:
+    """
+    Load notebook-produced predictions from match_predictions_test.parquet.
+    Returns list of {match_id, win_prob, draw_prob, loss_prob} or [] if file absent
+    or season not present in the file.
+    """
+    if not PRECOMPUTED_PREDICTIONS.exists():
+        return []
+
+    df = pd.read_parquet(PRECOMPUTED_PREDICTIONS)
+    df = df[df["season"] == season]
+    if df.empty:
+        return []
+
+    results = []
+    for _, row in df.iterrows():
+        results.append({
+            "match_id": str(row["match_id"]),
+            "win_prob":  round(float(row["prob_H"]), 4),
+            "draw_prob": round(float(row["prob_D"]), 4),
+            "loss_prob": round(float(row["prob_A"]), 4),
+        })
+    return results
 
 
 def train(seasons: list[str] = TRAIN_SEASONS) -> dict:
@@ -144,13 +175,16 @@ def predict_all_fixtures(season: str, league_id: int = DEFAULT_LEAGUE_ID) -> lis
     """
     Predict every fixture in a season — both played and unplayed.
 
-    - Played matches: use actual per-match composite scores.
-    - Unplayed matches: use each team's season-average composite scores as proxy.
-    - If a team has no data this season yet: fall back to their average across
-      all available training seasons.
+    Primary path: serve from pre-computed notebook predictions parquet when the
+    season is present there (fast, no model inference required).
+    Fallback: live inference using saved RF classifier + feature pipeline.
 
     Returns list of {match_id, win_prob, draw_prob, loss_prob}.
     """
+    precomputed = load_precomputed_predictions(season)
+    if precomputed:
+        return precomputed
+
     clf, outfield_scaler, gk_scaler, _ = load_model()
     classes = list(clf.classes_)
 
