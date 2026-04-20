@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+@.claude/architecture.md
+@.claude/testing.md
+@.claude/security.md
+
 ---
 
 # GOALS — Game Outcome and Analytics Learning System
