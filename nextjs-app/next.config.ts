@@ -1,7 +1,8 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Prisma generates in node_modules — needed for Edge-compatible builds
+  serverExternalPackages: ['@prisma/client'],
 };
 
 export default nextConfig;
