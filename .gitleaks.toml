@@ -1,0 +1,12 @@
+[allowlist]
+  description = "Allowlist for GOALS project"
+  paths = [
+    ".env.example",
+    "nextjs-app/.env.example"
+  ]
+
+[[rules]]
+  description = "Clerk publishable key (safe to commit)"
+  id = "clerk-publishable-key"
+  regex = '''pk_test_[a-zA-Z0-9]+'''
+  allowlist.regexes = ['''pk_test_\.\.\.''']

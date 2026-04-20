@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: 'node',
+    exclude: ['node_modules', 'e2e/**', '.next/**'],
     environmentMatchGlobs: [['__tests__/components/**', 'happy-dom']],
     setupFiles: ['__tests__/setup.ts'],
     globals: true,
