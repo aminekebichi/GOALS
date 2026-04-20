@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Match {
+  id         String   @id
+  homeTeam   String
+  awayTeam   String
+  date       DateTime
+  homeGoals  Int?
+  awayGoals  Int?
+  season     String
+  winProb    Float?
+  drawProb   Float?
+  lossProb   Float?
+  prediction String?
+
+  @@index([season])
+  @@index([date])
+}
+
+model Player {
+  id       String  @id
+  name     String
+  team     String
+  position String
+  attScore Float?
+  midScore Float?
+  defScore Float?
+  gkScore  Float?
+  season   String
+
+  @@index([season])
+  @@index([team])
+  @@index([position])
+}
+
+model PipelineMetrics {
+  id        Int      @id @default(autoincrement())
+  modelType String
+  rmse      Float?
+  accuracy  Float?
+  f1        Float?
+  trainedAt DateTime @default(now())
+}
