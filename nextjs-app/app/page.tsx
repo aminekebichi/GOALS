@@ -26,10 +26,11 @@ export default async function HomePage({
   const nowIso = new Date().toISOString();
   const matches = raw.map((m) => ({ ...m, date: m.date.toISOString() }));
 
-  // A match is "upcoming" if its kickoff date is still in the future.
-  // Matches with past dates but null goals had no player data scraped.
   const upcoming = matches.filter((m) => m.date > nowIso);
-  const played = matches.filter((m) => m.date <= nowIso);
+  // Only show played matches where result data is available
+  const played = matches.filter(
+    (m) => m.date <= nowIso && m.homeGoals !== null && m.awayGoals !== null,
+  );
 
   return (
     <div className="min-h-screen bg-[#0A0E1A]">
