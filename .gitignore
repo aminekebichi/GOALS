@@ -1,3 +1,6 @@
+# ── Local-only docs (not for repo) ─────────────────────────────────────────
+VIDEO_SCRIPT.md
+
 # ── Secrets & environment ──────────────────────────────────────────────────
 .env
 .env.local
