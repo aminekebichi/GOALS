@@ -3,7 +3,8 @@ import MatchCard from '@/components/MatchCard';
 import { prisma } from '@/lib/db';
 
 export default async function HomePage() {
-  const matches = await prisma.match.findMany({ orderBy: { date: 'desc' } });
+  const raw = await prisma.match.findMany({ orderBy: { date: 'desc' } });
+  const matches = raw.map((m) => ({ ...m, date: m.date.toISOString() }));
 
   return (
     <div className="min-h-screen bg-[#0A0E1A]">
@@ -23,7 +24,7 @@ export default async function HomePage() {
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
-            {matches.map((match: Parameters<typeof MatchCard>[0]['match']) => (
+            {matches.map((match) => (
               <MatchCard key={match.id} match={match} />
             ))}
           </div>
