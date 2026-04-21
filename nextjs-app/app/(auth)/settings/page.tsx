@@ -1,25 +1,13 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import Navbar from '@/components/Navbar';
-
-async function getMetrics() {
-  try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/api/metrics`,
-      { cache: 'no-store' }
-    );
-    if (!res.ok) return null;
-    return res.json();
-  } catch {
-    return null;
-  }
-}
+import { prisma } from '@/lib/db';
 
 export default async function SettingsPage() {
   const { userId } = await auth();
   if (!userId) redirect('/sign-in');
 
-  const metrics = await getMetrics();
+  const metrics = await prisma.pipelineMetrics.findFirst({ orderBy: { trainedAt: 'desc' } });
 
   return (
     <div className="min-h-screen bg-[#0A0E1A]">

@@ -13,6 +13,11 @@ vi.mock('@/lib/db', () => ({
       findMany: vi.fn(),
       findUnique: vi.fn(),
     },
+    matchPlayer: {
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+    },
     pipelineMetrics: {
       findFirst: vi.fn(),
       findMany: vi.fn(),
