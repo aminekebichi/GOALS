@@ -15,7 +15,7 @@ export default async function SettingsPage() {
       <main className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Pipeline Metrics</h1>
-          <p className="text-[#8B95A8]">ML model performance on the 2024/25 test season</p>
+          <p className="text-[#8B95A8]">ML model performance on the 2024/25 Premier League test season</p>
         </div>
 
         {metrics ? (

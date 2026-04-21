@@ -8,7 +8,7 @@ const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin']
 
 export const metadata: Metadata = {
   title: 'GOALS — Game Outcome Analytics & Learning System',
-  description: 'AI-powered La Liga match predictions using composite player performance scores',
+  description: 'AI-powered Premier League match predictions using composite player performance scores',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

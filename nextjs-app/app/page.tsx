@@ -13,7 +13,7 @@ export default async function HomePage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Match Calendar</h1>
           <p className="text-[#8B95A8]">
-            La Liga match predictions powered by composite player performance scores
+            Premier League match predictions powered by composite player performance scores
           </p>
         </div>
 

@@ -31,7 +31,7 @@ export default async function StatsPage({
       <main className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Player Stats</h1>
-          <p className="text-[#8B95A8]">Composite performance scores by position — 2024/25 season</p>
+          <p className="text-[#8B95A8]">Premier League composite performance scores by position — 2024/25 season</p>
         </div>
 
         <div className="flex gap-2 mb-6 flex-wrap">
