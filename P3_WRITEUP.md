@@ -817,66 +817,128 @@ This provides transparent AI disclosure in the git history — reviewers can see
 
 ---
 
-## 9. 4-Gate Security Pipeline
+## 9. Security Pipeline
 
-Security is enforced at four gates, all defined in `.claude/security.md`.
+The CS7180 Week 14 lecture defines an 8-gate security pipeline for AI-generated code. Each gate addresses a distinct class of vulnerability; no single gate catches everything, and the gates together form a defence-in-depth strategy. GOALS implements four of the eight gates — meeting the project minimum — and explicitly acknowledges which gates are absent and why.
 
-### Gate 1 — Gitleaks: Secrets Detection
+### The 8-Gate Framework
+
+```
+Code → [1]Secrets → [2]Deps → [3]SAST → [4]DAST → [5]Container → [6]License → [7]SecAcc → [8]SBOM → Production
+```
+
+| Gate | Tool Category | GOALS Status |
+|------|--------------|-------------|
+| 1 — Secrets Detection | Gitleaks | ✅ Implemented (CI) |
+| 2 — Dependency Scanning | npm audit | ✅ Implemented (CI) |
+| 3 — SAST | Security-reviewer agent + ai-review CI job | ✅ Implemented |
+| 4 — DAST | OWASP ZAP or equivalent | ❌ Not implemented |
+| 5 — Container Scanning | Trivy, Snyk Container | ❌ Not applicable (Vercel serverless, no custom image) |
+| 6 — License Compliance | FOSSA, license-checker | ❌ Not implemented |
+| 7 — Security Acceptance Criteria | Definition of Done checklist | ✅ Implemented |
+| 8 — SBOM | CycloneDX, SPDX | ❌ Not implemented |
+
+---
+
+### Gate 1 — Secrets Detection (Gitleaks)
 
 **Tool:** `gitleaks/gitleaks-action@v2`  
-**Where:** CI job `security` (`.github/workflows/ci.yml`) — scans full git history on every push and PR  
-**Blocks merge:** Yes — any committed secret fails the CI run  
+**Where:** CI job `security` — scans the full git history on every push and pull request  
+**Blocks merge:** Yes  
 
-Gitleaks scans the entire git history for accidentally committed secrets (API keys, connection strings, tokens). The `.env.local` file is git-ignored; all production secrets live in Vercel Environment Variables and GitHub Actions Secrets. Note: pre-commit local Gitleaks is not separately configured — the CI scan covers the full history on every push, catching any secret committed at any point.
+AI-generated code is known to occasionally reproduce hardcoded credentials from training data. Gitleaks mitigates this by scanning the entire commit history for API keys, connection strings, tokens, and private keys. The `.env.local` file is git-ignored; all production secrets are stored in Vercel Environment Variables and GitHub Actions Secrets. A pre-commit local hook is not separately configured — the CI scan covers the full history on every push.
 
-### Gate 2 — npm audit: Dependency Scanning
+---
+
+### Gate 2 — Dependency Scanning (npm audit)
 
 **Tool:** `npm audit --audit-level=moderate`  
 **Where:** CI job `security`  
-**Blocks merge:** Yes — any HIGH or CRITICAL vulnerability in the dependency tree fails the build  
+**Blocks merge:** Yes — HIGH or CRITICAL findings fail the build  
 
-Scans all npm packages for known CVEs. The threshold is `moderate`, meaning HIGH and CRITICAL vulnerabilities are blocking. LOW-severity findings are logged but not blocking.
+AI models suggest packages from training data, some of which carry known CVEs or have been superseded by more secure alternatives. `npm audit` scans the full dependency tree against the npm advisory database. Findings at HIGH or CRITICAL severity are blocking; LOW-severity findings are surfaced but non-blocking. This gate also provides partial protection against slopsquatting — the emerging attack pattern in which adversaries register hallucinated package names from AI responses and fill them with malicious code.
 
-### Gate 3 — Security Reviewer Agent: SAST
+---
 
-**Tool:** `.claude/agents/security-reviewer.md` (custom Claude Code agent)  
-**Where:** Run via the agent before any PR touching `/app/api/` or `middleware.ts`; also automated via `ai-review` CI job  
-**Blocks merge:** Expected on all auth/API PRs — human review of findings required  
+### Gate 3 — SAST: Static Application Security Testing
 
-The agent reviews code changes for all OWASP Top 10 risks with specific focus on:
-- **A01:** Every `/api/` route that returns player or match data checks `auth()` from Clerk; unauthenticated requests receive `401 Unauthorized`
-- **A03:** All DB queries use Prisma ORM — zero raw SQL string interpolation anywhere in the codebase
-- **A10:** No user-controlled URLs are fetched server-side — the self-referential HTTP fetch anti-pattern was identified and eliminated
+**Tools:** `.claude/agents/security-reviewer.md` + `anthropics/claude-code-action@beta` (CI `ai-review` job)  
+**Where:** Agent invoked before any PR touching `/app/api/` or auth-related files; `ai-review` job runs automatically on every pull request  
+**Blocks merge:** Human review of agent findings required on all auth/API PRs  
 
-Additionally, the CI workflow includes an AI PR review step (`anthropics/claude-code-action@beta`) that runs on every pull request, applying the C.L.E.A.R. framework and flagging auth/injection risks automatically.
+Static analysis examines source code without executing it. The `security-reviewer` custom agent reviews staged changes against all OWASP Top 10 categories, outputting per-finding severity (HIGH / MEDIUM / LOW), file:line location, OWASP category, and remediation. Key findings acted upon during development:
 
-### Gate 4 — OWASP Definition of Done Checklist
+- **A01 Broken Access Control:** Every `/api/` route returning player or match data calls `auth()` from Clerk; unauthenticated requests receive `401 Unauthorized`
+- **A03 Injection:** All database queries use Prisma ORM — zero raw SQL string interpolation in the codebase
+- **A10 SSRF:** The self-referential HTTP fetch anti-pattern (server component calling `${APP_URL}/api/matches`) was flagged and replaced with direct Prisma queries before production deployment
 
-**Where:** Every PR description includes this checklist manually  
-**Blocks merge:** Manual check required  
+The CI `ai-review` job provides a second independent static review pass on every pull request using the C.L.E.A.R. framework, covering context, limitations, errors, alternatives, and risks.
+
+---
+
+### Gate 4 — DAST: Dynamic Application Security Testing
+
+**Status: Not implemented**
+
+DAST tools (e.g., OWASP ZAP) test the running application from outside, simulating attacks against live endpoints to catch authentication bypasses, CORS misconfigurations, and exposed admin surfaces that static analysis cannot detect. This gate was not implemented in the current project. The mitigating factors are the limited attack surface (no user-submitted content, no file uploads, read-only database access from the app layer) and the use of Clerk, which handles session management without custom implementation.
+
+---
+
+### Gate 5 — Container Scanning
+
+**Status: Not applicable**
+
+Container scanning applies to deployments that ship custom Docker images. GOALS deploys to Vercel as a serverless Next.js application — no custom container image is built or maintained. Vercel manages the underlying runtime environment and applies its own security patching to the execution layer.
+
+---
+
+### Gate 6 — License Compliance
+
+**Status: Not implemented**
+
+Tools such as FOSSA or `license-checker` scan the dependency tree for license incompatibilities — for example, a GPL dependency in an MIT-licensed project. AI code assistants can introduce incompatible licenses silently when suggesting packages. This gate was not added to CI in the current project; all dependencies were manually verified to carry permissive licenses (MIT, Apache 2.0, ISC), but no automated enforcement is in place.
+
+---
+
+### Gate 7 — Security Acceptance Criteria
+
+**Where:** Every PR description, enforced manually  
+**Blocks merge:** Human check required  
 
 Every PR must satisfy before merge:
 
 - [ ] No new HIGH/CRITICAL findings in `npm audit`
 - [ ] Gitleaks CI gate passes (no secrets committed)
-- [ ] PRs touching `/app/api/` or `middleware.ts` reviewed by `security-reviewer` agent
+- [ ] PRs touching `/app/api/` reviewed by `security-reviewer` agent
 - [ ] All DB queries use Prisma (no template literals with user input)
 - [ ] New environment variables added to `.env.example` (never `.env.local`)
 
-### OWASP Top 10 Mitigations (Full Table)
+This gate formalises the Definition of Done for security, ensuring that checks are applied consistently rather than ad hoc.
+
+---
+
+### Gate 8 — SBOM (Software Bill of Materials)
+
+**Status: Not implemented**
+
+A Software Bill of Materials provides a complete, machine-readable inventory of every component in the application, in formats such as CycloneDX or SPDX. SBOM generation is required by the U.S. Executive Order 14028 and the EU Cyber Resilience Act for software supplied to government or enterprise contexts. The command `npx @cyclonedx/cyclonedx-npm --output-file sbom.json` would generate a CycloneDX SBOM for this project; this was not added to the CI pipeline in the current scope.
+
+---
+
+### OWASP Top 10 Mitigations
 
 | # | Risk | Mitigation in GOALS |
 |---|------|---------------------|
-| A01 | Broken Access Control | Clerk `auth()` in every protected server component and API route; middleware redirects unauthenticated users from `/stats` and `/settings` |
+| A01 | Broken Access Control | Clerk `auth()` in every protected server component and API route; `/stats` and `/settings` redirect unauthenticated users to `/sign-in` |
 | A02 | Cryptographic Failures | No custom crypto; Clerk manages sessions and tokens; Neon enforces TLS in transit |
 | A03 | Injection | Prisma ORM — parameterized queries only; no raw SQL; no template literals with user input anywhere in the codebase |
-| A04 | Insecure Design | Auth required for all composite score and pipeline data; ML pipeline is offline, not callable from the web |
+| A04 | Insecure Design | Auth required for all composite score and pipeline data; ML pipeline is offline and not callable from the web |
 | A05 | Security Misconfiguration | `.env.local` git-ignored; all secrets in Vercel dashboard + GitHub Secrets; no debug endpoints in production |
 | A06 | Vulnerable Components | `npm audit --audit-level=moderate` in CI blocks on HIGH/CRITICAL before any deployment proceeds |
 | A07 | Authentication Failures | Clerk handles MFA, token rotation, and session invalidation; no custom session code |
 | A08 | Integrity Failures | Gitleaks in CI scans full history; all deployment artifacts produced by the CI pipeline with a verified token |
 | A09 | Logging Failures | Vercel captures all API requests automatically; no PII is logged in application code |
-| A10 | SSRF | No user-controlled URLs fetched server-side; the self-referential HTTP fetch anti-pattern was discovered and removed |
+| A10 | SSRF | No user-controlled URLs fetched server-side; the self-referential HTTP fetch anti-pattern was identified and removed |
 
 ---
 
