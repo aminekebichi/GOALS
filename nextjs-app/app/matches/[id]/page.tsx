@@ -11,80 +11,84 @@ const POS_LABEL: Record<string, string> = {
   goalkeeper: 'Goalkeepers',
 };
 
-function scoreForPosition(pos: string, p: { attScore: number | null; midScore: number | null; defScore: number | null; gkScore: number | null }) {
-  if (pos === 'forward') return p.attScore;
-  if (pos === 'midfielder') return p.midScore;
-  if (pos === 'defender') return p.defScore;
-  if (pos === 'goalkeeper') return p.gkScore;
-  return null;
-}
+type MatchPlayer = {
+  id: string;
+  playerId: string;
+  playerName: string;
+  teamName: string;
+  position: string;
+  isMotm: boolean;
+  compositeScore: number | null;
+  minutesPlayed: number | null;
+  goals: number | null;
+  assists: number | null;
+};
 
 function ScoreBar({ value }: { value: number }) {
   const clamped = Math.max(-3, Math.min(3, value));
   const pct = ((clamped + 3) / 6) * 100;
   const color = value >= 0.5 ? '#FF4B44' : value >= -0.5 ? '#C9A84C' : '#4488FF';
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 flex-1">
       <div className="flex-1 h-1.5 bg-[#1C2333] rounded-full overflow-hidden">
-        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
       </div>
-      <span className="text-xs tabular-nums w-10 text-right" style={{ color }}>
+      <span className="text-xs tabular-nums w-10 text-right shrink-0" style={{ color }}>
         {value >= 0 ? '+' : ''}{value.toFixed(2)}
       </span>
     </div>
   );
 }
 
-function TeamRoster({
-  team,
+function PlayerList({
+  matchId,
   players,
-  side,
 }: {
-  team: string;
-  players: { id: string; name: string; position: string; attScore: number | null; midScore: number | null; defScore: number | null; gkScore: number | null }[];
-  side: 'home' | 'away';
+  matchId: string;
+  players: MatchPlayer[];
 }) {
-  const byPos = POS_ORDER.reduce<Record<string, typeof players>>((acc, pos) => {
-    acc[pos] = players.filter((p) => p.position === pos).sort((a, b) => {
-      const sa = scoreForPosition(pos, a) ?? -99;
-      const sb = scoreForPosition(pos, b) ?? -99;
-      return sb - sa;
-    });
+  const byPos = POS_ORDER.reduce<Record<string, MatchPlayer[]>>((acc, pos) => {
+    acc[pos] = players
+      .filter((p) => p.position === pos)
+      .sort((a, b) => (b.compositeScore ?? -99) - (a.compositeScore ?? -99));
     return acc;
   }, {});
 
   return (
-    <div className={`flex-1 ${side === 'away' ? 'text-right' : ''}`}>
-      <h3 className="font-bold text-lg mb-4 text-[#FF7A00]">{team}</h3>
+    <div className="flex flex-col gap-6">
       {POS_ORDER.map((pos) => {
         const group = byPos[pos];
-        if (!group || group.length === 0) return null;
+        if (!group?.length) return null;
         return (
-          <div key={pos} className="mb-5">
+          <div key={pos}>
             <p className="text-xs text-[#8B95A8] uppercase tracking-wider mb-2">{POS_LABEL[pos]}</p>
-            <div className="flex flex-col gap-2">
-              {group.map((p) => {
-                const score = scoreForPosition(pos, p);
-                return (
-                  <div key={p.id} className={`flex flex-col gap-1 ${side === 'away' ? 'items-end' : ''}`}>
-                    <span className="text-sm font-medium text-[#F0F2F8]">{p.name}</span>
-                    {score !== null ? (
-                      <div className={`w-full max-w-[200px] ${side === 'away' ? 'ml-auto' : ''}`}>
-                        <ScoreBar value={score} />
-                      </div>
-                    ) : (
-                      <span className="text-xs text-[#8B95A8]">—</span>
-                    )}
-                  </div>
-                );
-              })}
+            <div className="flex flex-col gap-1">
+              {group.map((p) => (
+                <Link
+                  key={p.id}
+                  href={`/matches/${matchId}/players/${p.playerId}`}
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#1C2333] transition-colors group"
+                >
+                  <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: p.isMotm ? '#FF7A00' : 'transparent', border: p.isMotm ? 'none' : '1px solid #1C2333' }} />
+                  <span className="text-sm font-medium text-[#F0F2F8] group-hover:text-white w-40 shrink-0 truncate">
+                    {p.playerName}
+                    {p.isMotm && <span className="ml-1.5 text-[10px] text-[#FF7A00] font-bold">MOTM</span>}
+                  </span>
+                  <span className="text-xs text-[#8B95A8] w-6 text-center shrink-0">
+                    {p.minutesPlayed ? `${Math.round(p.minutesPlayed)}'` : '—'}
+                  </span>
+                  {p.compositeScore !== null ? (
+                    <ScoreBar value={p.compositeScore} />
+                  ) : (
+                    <span className="text-xs text-[#8B95A8]">—</span>
+                  )}
+                  <span className="text-xs text-[#8B95A8] shrink-0 group-hover:text-white">→</span>
+                </Link>
+              ))}
             </div>
           </div>
         );
       })}
-      {players.length === 0 && (
-        <p className="text-sm text-[#8B95A8]">No player data available</p>
-      )}
     </div>
   );
 }
@@ -92,22 +96,18 @@ function TeamRoster({
 export default async function MatchDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const match = await prisma.match.findUnique({ where: { id } });
+  const [match, allPlayers] = await Promise.all([
+    prisma.match.findUnique({ where: { id } }),
+    prisma.matchPlayer.findMany({ where: { matchId: id } }),
+  ]);
   if (!match) notFound();
 
-  const [homePlayers, awayPlayers] = await Promise.all([
-    prisma.player.findMany({
-      where: { team: match.homeTeam, season: '2024_2025' },
-      orderBy: { name: 'asc' },
-    }),
-    prisma.player.findMany({
-      where: { team: match.awayTeam, season: '2024_2025' },
-      orderBy: { name: 'asc' },
-    }),
-  ]);
+  const motm = allPlayers.find((p) => p.isMotm) ?? null;
+  const homePlayers = allPlayers.filter((p) => p.teamName === match.homeTeam);
+  const awayPlayers = allPlayers.filter((p) => p.teamName === match.awayTeam);
 
   const isPlayed = match.homeGoals !== null && match.awayGoals !== null;
-  const date = match.date.toLocaleDateString('en-GB', {
+  const dateStr = match.date.toLocaleDateString('en-GB', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
 
@@ -126,33 +126,31 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
     return 'Draw';
   })();
 
-  const correct = (() => {
-    if (!isPlayed || !predLabel) return null;
-    if (predLabel === 'Home Win') return actualOutcome === `${match.homeTeam} Win`;
-    if (predLabel === 'Away Win') return actualOutcome === `${match.awayTeam} Win`;
-    return actualOutcome === 'Draw';
-  })();
+  const correct =
+    predLabel && actualOutcome
+      ? predLabel === 'Home Win'
+        ? actualOutcome === `${match.homeTeam} Win`
+        : predLabel === 'Away Win'
+        ? actualOutcome === `${match.awayTeam} Win`
+        : actualOutcome === 'Draw'
+      : null;
 
   return (
     <div className="min-h-screen bg-[#0A0E1A]">
       <Navbar />
       <main className="max-w-5xl mx-auto px-4 py-8">
-        {/* Back */}
         <Link href="/" className="text-sm text-[#8B95A8] hover:text-white mb-6 inline-block">
           ← Back to Calendar
         </Link>
 
         {/* Match header */}
-        <div className="bg-[#111827] border border-[#1C2333] rounded-xl p-6 mb-8">
-          <p className="text-xs text-[#8B95A8] mb-4">{date}</p>
-
-          <div className="flex items-center justify-between gap-4 mb-6">
+        <div className="bg-[#111827] border border-[#1C2333] rounded-xl p-6 mb-6">
+          <p className="text-xs text-[#8B95A8] mb-4">{dateStr}</p>
+          <div className="flex items-center justify-between gap-4 mb-5">
             <span className="text-xl font-bold text-right flex-1">{match.homeTeam}</span>
             <div className="text-center">
               {isPlayed ? (
-                <span className="text-3xl font-bold tabular-nums">
-                  {match.homeGoals} – {match.awayGoals}
-                </span>
+                <span className="text-3xl font-bold tabular-nums">{match.homeGoals} – {match.awayGoals}</span>
               ) : (
                 <span className="text-xl font-bold text-[#8B95A8]">vs</span>
               )}
@@ -161,15 +159,13 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
             <span className="text-xl font-bold flex-1">{match.awayTeam}</span>
           </div>
 
-          {/* Prediction row */}
           {predLabel && predProb !== null && (
             <div className="border-t border-[#1C2333] pt-4 flex flex-wrap gap-4 items-center justify-between">
               <div>
                 <p className="text-xs text-[#8B95A8] mb-1">Model prediction</p>
                 <p className="font-semibold text-[#FF7A00]">
                   {predLabel === 'Home Win' ? match.homeTeam : predLabel === 'Away Win' ? match.awayTeam : 'Draw'}
-                  {' '}
-                  <span className="text-sm text-[#8B95A8] font-normal">
+                  <span className="text-sm text-[#8B95A8] font-normal ml-1">
                     ({Math.round(predProb * 100)}% confidence)
                   </span>
                 </p>
@@ -189,16 +185,42 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
           )}
         </div>
 
-        {/* Player rosters */}
-        <h2 className="text-xl font-bold mb-4">Player Performance (2024/25)</h2>
-        <p className="text-sm text-[#8B95A8] mb-6">
-          Composite z-scores: positive = above average, negative = below average. Bars show relative performance within each position.
-        </p>
+        {/* MOTM */}
+        {motm && (
+          <Link
+            href={`/matches/${id}/players/${motm.playerId}`}
+            className="block bg-gradient-to-r from-[#FF7A00]/20 to-[#FF4B44]/10 border border-[#FF7A00]/40 rounded-xl p-5 mb-6 hover:border-[#FF7A00]/70 transition-colors"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-[#FF7A00] font-bold uppercase tracking-wider mb-1">Man of the Match</p>
+                <p className="text-xl font-bold text-white">{motm.playerName}</p>
+                <p className="text-sm text-[#8B95A8] mt-0.5">{motm.teamName} · {motm.position.charAt(0).toUpperCase() + motm.position.slice(1)}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-3xl font-bold text-[#FF7A00]">
+                  {motm.compositeScore !== null && motm.compositeScore >= 0 ? '+' : ''}{motm.compositeScore?.toFixed(2)}
+                </p>
+                <p className="text-xs text-[#8B95A8] mt-0.5">composite score</p>
+                <p className="text-xs text-[#8B95A8] mt-2">View stats →</p>
+              </div>
+            </div>
+          </Link>
+        )}
 
-        <div className="flex gap-8">
-          <TeamRoster team={match.homeTeam} players={homePlayers} side="home" />
-          <div className="w-px bg-[#1C2333]" />
-          <TeamRoster team={match.awayTeam} players={awayPlayers} side="away" />
+        {/* Player rosters */}
+        <h2 className="text-lg font-bold mb-1">Player Performance</h2>
+        <p className="text-xs text-[#8B95A8] mb-5">Click any player to view their match stats. Bars show composite z-score for this game.</p>
+
+        <div className="grid grid-cols-2 gap-6">
+          <div>
+            <h3 className="font-bold text-[#FF7A00] mb-4">{match.homeTeam}</h3>
+            <PlayerList matchId={id} players={homePlayers} />
+          </div>
+          <div>
+            <h3 className="font-bold text-[#FF7A00] mb-4">{match.awayTeam}</h3>
+            <PlayerList matchId={id} players={awayPlayers} />
+          </div>
         </div>
       </main>
     </div>

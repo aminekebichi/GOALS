@@ -41,6 +41,37 @@ model Player {
   @@index([position])
 }
 
+model MatchPlayer {
+  id             String  @id  // "{match_id}_{player_id}"
+  matchId        String
+  playerId       String
+  playerName     String
+  teamName       String
+  position       String
+  isMotm         Boolean @default(false)
+  compositeScore Float?
+  minutesPlayed  Float?
+  goals          Float?
+  assists        Float?
+  xGoals         Float?
+  xAssists       Float?
+  shotsOnTarget  Float?
+  shotsOffTarget Float?
+  chancesCreated Float?
+  passAccuracy   Float?
+  dribbles       Float?
+  interceptions  Float?
+  clearances     Float?
+  recoveries     Float?
+  aerialsWon     Float?
+  saves          Float?
+  saveRate       Float?
+  xGotFaced      Float?
+  goalsPrevented Float?
+
+  @@index([matchId])
+}
+
 model PipelineMetrics {
   id        Int      @id @default(autoincrement())
   modelType String

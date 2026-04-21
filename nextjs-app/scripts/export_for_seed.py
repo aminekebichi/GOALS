@@ -136,6 +136,91 @@ for _, row in pd.concat([of_agg, gk_agg], ignore_index=True).iterrows():
 
 print(f"Players: {len(players)}")
 
+# ── Match Players (per-match stats + MOTM) ────────────────────────────────────
+POSITION_MAP_INT = {1: "defender", 2: "midfielder", 3: "forward"}
+
+of_test = pd.read_parquet(OUTFIELD_TEST)
+gk_test = pd.read_parquet(GK_TEST)
+of_test["position_group"] = of_test["position_id_int"].map(POSITION_MAP_INT).fillna("midfielder")
+
+pred_match_ids = set(preds["match_id"].astype(str))
+
+def get_col(row, col, default=None):
+    v = row.get(col, default)
+    return safe_float(v) if v is not None else default
+
+match_players = []
+for mid in pred_match_ids:
+    mid_int = int(mid)
+    of_match = of_test[of_test["match_id"] == mid_int]
+    gk_match = gk_test[gk_test["match_id"] == mid_int]
+
+    rows = []
+    for _, r in of_match.iterrows():
+        rows.append({
+            "id":            f"{mid}_{r['player_id']}",
+            "matchId":       mid,
+            "playerId":      str(r["player_id"]),
+            "playerName":    str(r["player_name"]),
+            "teamName":      str(r["team_name"]),
+            "position":      str(r["position_group"]),
+            "compositeScore": safe_float(r["composite_score"]),
+            "minutesPlayed": safe_float(r.get("minutes_played")),
+            "goals":         safe_float(r.get("goals")),
+            "assists":       safe_float(r.get("assists")),
+            "xGoals":        safe_float(r.get("expected_goals")),
+            "xAssists":      safe_float(r.get("expected_assists")),
+            "shotsOnTarget": safe_float(r.get("ShotsOnTarget")),
+            "shotsOffTarget":safe_float(r.get("ShotsOffTarget")),
+            "chancesCreated":safe_float(r.get("chances_created")),
+            "passAccuracy":  safe_float(r.get("pass_accuracy")),
+            "dribbles":      safe_float(r.get("dribbles_succeeded")),
+            "interceptions": safe_float(r.get("interceptions")),
+            "clearances":    safe_float(r.get("clearances")),
+            "recoveries":    safe_float(r.get("recoveries")),
+            "aerialsWon":    safe_float(r.get("aerials_won")),
+            "saves": None, "saveRate": None, "xGotFaced": None, "goalsPrevented": None,
+            "isMotm": False,
+        })
+    for _, r in gk_match.iterrows():
+        rows.append({
+            "id":            f"{mid}_{r['player_id']}",
+            "matchId":       mid,
+            "playerId":      str(r["player_id"]),
+            "playerName":    str(r["player_name"]),
+            "teamName":      str(r["team_name"]),
+            "position":      "goalkeeper",
+            "compositeScore": safe_float(r["composite_score"]),
+            "minutesPlayed": safe_float(r.get("minutes_played")),
+            "goals":         safe_float(r.get("goals", 0)),
+            "assists":       safe_float(r.get("assists")),
+            "xGoals":        None,
+            "xAssists":      safe_float(r.get("expected_assists")),
+            "shotsOnTarget": None, "shotsOffTarget": None,
+            "chancesCreated":safe_float(r.get("chances_created")),
+            "passAccuracy":  safe_float(r.get("pass_accuracy")),
+            "dribbles":      None,
+            "interceptions": safe_float(r.get("interceptions")),
+            "clearances":    safe_float(r.get("clearances")),
+            "recoveries":    safe_float(r.get("recoveries")),
+            "aerialsWon":    safe_float(r.get("aerials_won")),
+            "saves":         safe_float(r.get("saves")),
+            "saveRate":      safe_float(r.get("save_rate")),
+            "xGotFaced":     safe_float(r.get("expected_goals_on_target_faced")),
+            "goalsPrevented":safe_float(r.get("goals_prevented")),
+            "isMotm": False,
+        })
+
+    # Mark MOTM: highest composite_score among players with >= 45 mins
+    eligible = [p for p in rows if p["minutesPlayed"] is not None and p["minutesPlayed"] >= 45 and p["compositeScore"] is not None]
+    if eligible:
+        motm = max(eligible, key=lambda p: p["compositeScore"])
+        motm["isMotm"] = True
+
+    match_players.extend(rows)
+
+print(f"Match players: {len(match_players)}")
+
 # ── Metrics ───────────────────────────────────────────────────────────────────
 metrics = [
     {"modelType": "RandomForest",        "accuracy": 0.5480, "f1": 0.5353, "rmse": None},
@@ -143,6 +228,6 @@ metrics = [
 ]
 
 # ── Write ─────────────────────────────────────────────────────────────────────
-payload = {"matches": matches, "players": players, "metrics": metrics}
+payload = {"matches": matches, "players": players, "matchPlayers": match_players, "metrics": metrics}
 OUT_FILE.write_text(json.dumps(payload, indent=2, default=str))
 print(f"Written to {OUT_FILE}")

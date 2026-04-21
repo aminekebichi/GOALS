@@ -14,6 +14,35 @@ import * as path from 'path';
 
 const prisma = new PrismaClient();
 
+interface MatchPlayerSeed {
+  id: string;
+  matchId: string;
+  playerId: string;
+  playerName: string;
+  teamName: string;
+  position: string;
+  isMotm: boolean;
+  compositeScore?: number;
+  minutesPlayed?: number;
+  goals?: number;
+  assists?: number;
+  xGoals?: number;
+  xAssists?: number;
+  shotsOnTarget?: number;
+  shotsOffTarget?: number;
+  chancesCreated?: number;
+  passAccuracy?: number;
+  dribbles?: number;
+  interceptions?: number;
+  clearances?: number;
+  recoveries?: number;
+  aerialsWon?: number;
+  saves?: number;
+  saveRate?: number;
+  xGotFaced?: number;
+  goalsPrevented?: number;
+}
+
 interface SeedData {
   matches: {
     id: string;
@@ -45,6 +74,7 @@ interface SeedData {
     accuracy?: number;
     f1?: number;
   }[];
+  matchPlayers: MatchPlayerSeed[];
 }
 
 async function main() {
@@ -73,6 +103,18 @@ async function main() {
       update: player,
       create: player,
     });
+  }
+
+  console.log(`Seeding ${data.matchPlayers?.length ?? 0} match player records...`);
+  const BATCH = 100;
+  const mp = data.matchPlayers ?? [];
+  for (let i = 0; i < mp.length; i += BATCH) {
+    const batch = mp.slice(i, i + BATCH);
+    await Promise.all(
+      batch.map((p) =>
+        prisma.matchPlayer.upsert({ where: { id: p.id }, update: p, create: p })
+      )
+    );
   }
 
   console.log(`Seeding ${data.metrics.length} metrics records...`);
