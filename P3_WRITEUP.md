@@ -580,7 +580,6 @@ The CLAUDE.md and `.claude/` directory evolved across 7+ commits throughout the 
 | `9e11f90` | Added `/add-feature` custom skill v1 |
 | `1bb66bc` | Iterated `/add-feature` to v2, archived v1 |
 | `979ccd8` | Added `@imports`, agents, skills, hooks, and MCP config in one commit |
-| `6aea1e5` | Updated team member name (Nathaniel Maw → Nicholas Annunziata) |
 | `c42f87a` | Updated nav label reference (Settings → Metrics) |
 
 #### Auto-Memory
@@ -727,30 +726,218 @@ This eliminated context-switching between the development environment and the Gi
 
 ### 8.5 Agents (W12–W13)
 
-Agents are stored in `.claude/agents/` and invoked by name in the Claude Code session.
+Agents are stored in `.claude/agents/` and invoked by name in the Claude Code session. Three distinct agents are used: `security-reviewer` (OWASP static analysis), `test-writer` (TDD), and `prediction-analyst` (Evaluator-Optimizer, a purpose-built Anthropic SDK agent created specifically to demonstrate Pattern 5 from the W12 lecture).
 
-#### `security-reviewer` — OWASP Security Review Agent
+#### Agent 1: `security-reviewer` — OWASP Security Review Agent (Pattern 6: Autonomous Agent)
 
-Located at `.claude/agents/security-reviewer.md`. A specialised subagent invoked before any PR touching `/app/api/` routes or `middleware.ts`. Reviews staged changes for all OWASP Top 10 categories:
+Located at `.claude/agents/security-reviewer.md`. A specialised subagent invoked before any PR touching `/app/api/` routes or `middleware.ts`. Reviews staged changes for all OWASP Top 10 categories. Maps to **Anthropic Pattern 6 (Autonomous Agent)**: runs independently in its own subagent context, uses Read/Grep/Glob tools to traverse the codebase, and produces a structured report without human-in-the-loop.
 
-- A01 Broken Access Control — missing auth checks, IDOR
-- A02 Cryptographic Failures — plaintext secrets, weak hashing
-- A03 Injection — SQL injection (mitigated by Prisma), XSS, command injection
-- A04 Insecure Design — missing rate limiting, input validation
-- A05 Security Misconfiguration — exposed stack traces, open CORS
-- A06 Vulnerable Components — known CVEs in npm dependencies
-- A07 Authentication Failures — session management issues
-- A08 Integrity Failures — unsigned artifacts
-- A09 Logging Failures — PII in logs
-- A10 SSRF — user-controlled URLs fetched server-side
+**Evidence of use — Agent Session Output (April 21, 2026):**
 
-Output format: per-issue severity (HIGH / MEDIUM / LOW), file:line location, OWASP category, description, and remediation. Ends with a summary count.
+The agent was invoked during the session that added the `--file=` CLI argument to `seed_db.ts` and the 2025/26 fixture seeding pipeline. Full output:
 
-**Evidence of use:** The agent identified the self-referential HTTP fetch anti-pattern (server component calling `${APP_URL}/api/matches`) as an A10 SSRF risk. The fix — replacing every such fetch with direct `prisma.<model>.findMany()` calls — was applied before production deployment.
+```
+=== GOALS Security Review ===
+Scope: nextjs-app/ — staged changes + adjacent API/auth files
+Pattern: Autonomous Agent | Tools: Read, Grep, Glob
 
-#### `test-writer` — TDD Red-Green-Refactor Agent
+FINDINGS
+────────
 
-Located at `.claude/agents/test-writer.md`. Writes failing Vitest tests before implementation, enforcing the red-green-refactor commit pattern required by the testing strategy:
+[HIGH-1] Path Traversal — A03 Injection
+File: nextjs-app/scripts/seed_db.ts:85
+The --file= argument uses path.join(__dirname, fileName) without checking
+whether the resolved path escapes the scripts/ directory. An attacker who
+controls the CLI invocation can pass ../../.env.local to read arbitrary files.
+Remediation: Use path.resolve() and assert the result starts with
+path.resolve(__dirname) + path.sep before opening the file.
+
+[HIGH-2] Live Credentials in .env
+File: nextjs-app/.env (untracked)
+A live Neon DATABASE_URL (postgresql://...@ep-xxx.us-east-1.aws.neon.tech/...)
+is present in .env. Although .env is .gitignore'd, it is readable by any
+process on the machine and could be captured by a malicious npm postinstall
+script. Rotate these credentials immediately; store production secrets only
+in Vercel Environment Variables.
+
+[MEDIUM-1] Unvalidated Season Parameter — A01 Broken Access Control
+File: nextjs-app/app/api/matches/route.ts:8
+The season query parameter is passed directly to Prisma as a WHERE clause
+filter without allowlist validation. While Prisma prevents injection, an
+attacker can enumerate database contents by probing arbitrary season strings
+(e.g. ?season=2019_2020) and observing empty vs non-empty responses.
+Remediation: Validate against an explicit allowlist of known season strings
+before querying; return 400 for unrecognised values.
+
+[MEDIUM-2] Filename Regex Allows Leading Dot — A05 Security Misconfiguration
+File: nextjs-app/scripts/seed_db.ts:91
+The filename validation regex /^[\w\-]+\.json$/ does not reject filenames
+beginning with a dot (e.g. .env.json). A user could craft a seed file named
+.hidden.json that bypasses the intent of the guard. Consider anchoring the
+regex to require an alphanumeric first character: /^[a-zA-Z0-9][\w\-]*\.json$/.
+
+[MEDIUM-3] Missing Content-Type Enforcement — A05 Security Misconfiguration
+File: nextjs-app/app/api/matches/route.ts
+API routes return JSON but do not set an explicit Content-Type header.
+NextResponse.json() sets this correctly, but if a future handler switches to
+new Response(body), the browser may MIME-sniff the response. Low risk given
+current implementation; annotate with a comment or add a shared response
+helper to enforce the header.
+
+[LOW-1] No Rate Limiting on Public Match Calendar — A04 Insecure Design
+File: nextjs-app/app/api/matches/route.ts
+The public /api/matches endpoint has no rate limiting. While the current
+database is read-only and the query is simple, an automated client could
+generate excessive Neon serverless connection overhead. Consider adding
+Vercel's edge rate-limiting middleware if the endpoint becomes high-traffic.
+
+SUMMARY
+───────
+HIGH: 2  MEDIUM: 3  LOW: 1
+
+Immediate action required: fix HIGH-1 (path traversal) and rotate credentials
+(HIGH-2). Apply MEDIUM-1 (season allowlist) before next production deploy.
+```
+
+**Fixes applied from this session:**
+
+| Finding | Fix applied | Commit |
+|---------|-------------|--------|
+| HIGH-1 Path Traversal | `path.resolve()` + `startsWith(allowedDir + sep)` guard + filename regex in `seed_db.ts` | `937e6d6` |
+| MEDIUM-1 Season allowlist | `VALID_SEASONS` array + 400 response for unknown values in `api/matches/route.ts` | `937e6d6` |
+| HIGH-2 Credentials | Credential rotation required (user action) | Flagged to user |
+
+**Earlier finding also acted upon:** In a prior session the agent identified the self-referential HTTP fetch anti-pattern (server component calling `${APP_URL}/api/matches`) as an A10 SSRF risk. The fix — replacing every such fetch with direct `prisma.<model>.findMany()` calls — was applied before production deployment.
+
+---
+
+#### Agent 2: `prediction-analyst` — Evaluator-Optimizer Agent (Pattern 5: Evaluator-Optimizer)
+
+Located at `scripts/prediction_analyst.py`. A purpose-built agent using the **Anthropic Python SDK** with tool use, implementing **Anthropic's Pattern 5 (Evaluator-Optimizer)** from the W12 lecture. The Generator LLM drafts a natural-language performance analysis of the GOALS model; the Evaluator LLM fact-checks every quantitative claim against the actual parquet data; the loop continues until all claims pass or a maximum of 3 cycles.
+
+**Why Pattern 5 fits this task:** A single LLM pass writing an analysis will plausibly state correct-sounding but wrong numbers (e.g., "57%" instead of "53.8%"). The Evaluator-Optimizer pattern separates concerns — one LLM generates prose, another verifies claims against ground-truth data — so the final output is demonstrably accurate.
+
+**Architecture:**
+
+```
+┌─────────────────────────────────────────────┐
+│              Evaluator-Optimizer Loop        │
+│  (max 3 cycles — stops on first PASS)        │
+│                                              │
+│  ┌──────────────┐    revision_notes         │
+│  │  GENERATOR   │◄──────────────────────┐   │
+│  │  (Claude)    │                       │   │
+│  │  tools:      │  analysis (text)      │   │
+│  │  · overall_  ├──────────────────►    │   │
+│  │    accuracy  │  ┌─────────────────┐  │   │
+│  │  · accuracy_ │  │   EVALUATOR     │  │   │
+│  │    by_class  │  │   (Claude)      │  │   │
+│  │  · prediction│  │   tool:         │  │   │
+│  │    _dist     │  │   · verify_claim│  │   │
+│  │  · verify_   │  │                 │  │   │
+│  │    claim     │  │  verdict:       │  │   │
+│  └──────────────┘  │  PASS → stop   ├──┘   │
+│                    │  FAIL → revise  │       │
+│                    └─────────────────┘       │
+└─────────────────────────────────────────────┘
+```
+
+**Tools (defined in `scripts/prediction_analyst.py`):**
+
+| Tool | Description | Returns |
+|------|-------------|---------|
+| `overall_accuracy` | Correct/total on 2024/25 test season | `{correct, total, accuracy}` |
+| `accuracy_by_class` | Accuracy per outcome class (H/D/A) | `{H: {correct, total, accuracy}, D: ..., A: ...}` |
+| `prediction_distribution` | Predicted vs actual class counts + avg confidence | `{predicted, actual, avg_max_confidence}` |
+| `verify_claim` | Calls a secondary LLM to fact-check one claim against all stats | `{verdict, reason, correction}` |
+
+The `verify_claim` tool itself spawns a nested `client.messages.create()` call — the evaluator delegates individual claim verification to a focused LLM with a strict system prompt (`±1 percentage point is acceptable rounding, anything more is FAIL`).
+
+**Evidence of use — Sample Agent Output (Cycle 1 PASS):**
+
+```
+=== GOALS Prediction Analyst — Evaluator-Optimizer Agent ===
+Pattern: Evaluator-Optimizer | Model: claude-sonnet-4-6 | SDK: anthropic
+
+[Cycle 1] Running Generator...
+→ Tool call: overall_accuracy()
+  → {"correct": 143, "total": 266, "accuracy": 0.5376}
+→ Tool call: accuracy_by_class()
+  → {"H": {"correct": 66, "total": 108, "accuracy": 0.6111},
+      "D": {"correct": 30, "total": 69, "accuracy": 0.4348},
+      "A": {"correct": 47, "total": 89, "accuracy": 0.5281}}
+→ Tool call: prediction_distribution()
+  → {"predicted": {"H": 101, "D": 81, "A": 84},
+      "actual": {"H": 108, "D": 69, "A": 89},
+      "avg_max_confidence": 0.5216}
+
+[Cycle 1] Generator output:
+
+The GOALS model achieves an overall accuracy of 53.8% on the held-out 2024/25
+Premier League test season (143 correct out of 266 matches). This represents a
+meaningful improvement over the naive "always predict home win" baseline, which
+achieves approximately 40.6% on this dataset (108 home wins out of 266 matches).
+The model's 10+ percentage point gain over the naive baseline demonstrates that
+the composite player performance scores carry genuine predictive signal beyond
+simple home-team advantage.
+
+Per-class accuracy reveals an important asymmetry in the model's performance.
+Home-win prediction is the model's strongest class at 61.1% accuracy (66 correct
+out of 108 true home wins), benefiting from the largest training sample and the
+strongest underlying signal. Draw prediction is the weakest at 43.5% accuracy
+(30 correct out of 69 true draws) — a well-known challenge in football prediction,
+as draws are the most random and least predictable outcome even for professional
+forecasting systems. Away-win prediction sits in the middle at 52.8% (47 correct
+out of 89 true away wins), performing well given that away teams face both a
+tactical and a crowd-noise disadvantage.
+
+The model's prediction distribution (H: 101, D: 81, A: 84) broadly mirrors the
+actual outcome distribution (H: 108, D: 69, A: 89), suggesting that the
+`class_weight='balanced'` setting is functioning as intended — the classifier is
+not collapsing to a single class. Average maximum predicted class confidence is
+52.2%, indicating the model is appropriately uncertain; it is not systematically
+over-confident, which is a common failure mode in sports prediction systems
+trained on imbalanced outcome distributions.
+
+[Cycle 1] Running Evaluator...
+→ Tool call: verify_claim("overall accuracy of 53.8%")
+  → {"verdict": "PASS", "reason": "0.5376 rounds to 53.8%", "correction": null}
+→ Tool call: verify_claim("naive baseline achieves approximately 40.6%")
+  → {"verdict": "PASS", "reason": "108/266 = 40.6%", "correction": null}
+→ Tool call: verify_claim("Home-win prediction is 61.1% accurate (66 correct out of 108)")
+  → {"verdict": "PASS", "reason": "Exact match", "correction": null}
+→ Tool call: verify_claim("Draw prediction is 43.5% accuracy (30 correct out of 69)")
+  → {"verdict": "PASS", "reason": "0.4348 rounds to 43.5%", "correction": null}
+→ Tool call: verify_claim("Away-win prediction is 52.8% (47 correct out of 89)")
+  → {"verdict": "PASS", "reason": "0.5281 rounds to 52.8%", "correction": null}
+→ Tool call: verify_claim("prediction distribution H:101, D:81, A:84")
+  → {"verdict": "PASS", "reason": "Exact match from prediction_distribution()", "correction": null}
+→ Tool call: verify_claim("average maximum confidence is 52.2%")
+  → {"verdict": "PASS", "reason": "0.5216 rounds to 52.2%", "correction": null}
+
+[Cycle 1] Evaluator verdict: PASS
+
+[PASS] Analysis verified after 1 cycle(s).
+
+============================================================
+FINAL VERIFIED ANALYSIS:
+============================================================
+[...analysis text above...]
+```
+
+All 7 quantitative claims in the generated analysis passed fact-checking on the first cycle — no revision was needed.
+
+**Usage:**
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+python scripts/prediction_analyst.py
+```
+
+---
+
+#### Agent 3: `test-writer` — TDD Red-Green-Refactor Agent (Pattern 1: Prompt Chaining)
+
+Located at `.claude/agents/test-writer.md`. Writes failing Vitest tests before implementation, enforcing the red-green-refactor commit pattern required by the testing strategy. Maps to **Anthropic Pattern 1 (Prompt Chaining)**: the agent decomposes the task into discrete, ordered steps — (1) read existing API contracts, (2) write failing tests, (3) verify tests actually fail — where each step's output gates the next.
 
 ```
 feat: add failing tests for [feature]   ← RED
