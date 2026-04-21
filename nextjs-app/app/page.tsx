@@ -1,21 +1,9 @@
 import Navbar from '@/components/Navbar';
 import MatchCard from '@/components/MatchCard';
-
-async function getMatches() {
-  try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/api/matches`, {
-      cache: 'no-store',
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.matches ?? [];
-  } catch {
-    return [];
-  }
-}
+import { prisma } from '@/lib/db';
 
 export default async function HomePage() {
-  const matches = await getMatches();
+  const matches = await prisma.match.findMany({ orderBy: { date: 'desc' } });
 
   return (
     <div className="min-h-screen bg-[#0A0E1A]">
