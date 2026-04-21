@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 # GOALS — Game Outcome and Analytics Learning System
 
-**Course:** EECE5644 — Introduction to Machine Learning and Pattern Recognition
+**Course:** CS7180 — Vibe Coding
 **Team:** Amine Kebichi (regression + evaluation), Nicholas Annunziata (clustering + classification)
 **Deadline:** Final report + presentation — **April 18, 2026**
 

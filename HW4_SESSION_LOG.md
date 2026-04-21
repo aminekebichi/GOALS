@@ -3,7 +3,7 @@
 
 **Authors:** Amine Kebichi & Nicholas Annunziata
 **Date:** March 20–22, 2026
-**Course:** EECE5644 — Introduction to Machine Learning and Pattern Recognition
+**Course:** CS7180 — Vibe Coding
 
 > **How to read this log:**
 > Each entry shows the exact prompt issued, the tools Claude Code invoked, the key output returned, and an annotation block (`▶ ANNOTATION`) explaining what the interaction demonstrates about the workflow. Session boundaries and `/clear` points are marked explicitly.

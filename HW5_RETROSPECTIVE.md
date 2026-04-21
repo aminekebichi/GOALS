@@ -1,7 +1,7 @@
 # HW5 Retrospective — Custom Skill + MCP Integration
 
 **Project:** GOALS — Game Outcome and Analytics Learning System  
-**Course:** EECE5644  
+**Course:** CS7180 — Vibe Coding  
 **Author:** Amine Kebichi  
 **Date:** April 4, 2026
 

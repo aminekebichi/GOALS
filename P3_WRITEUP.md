@@ -1,7 +1,7 @@
 # P3 — Product Application: GOALS
 ## Game Outcome and Analytics Learning System
 
-**Course:** EECE5644 — Introduction to Machine Learning and Pattern Recognition  
+**Course:** CS7180 — Vibe Coding  
 **Team:** Amine Kebichi · Nicholas Annunziata  
 **Submitted:** April 21, 2026  
 **Live App:** https://project-d7avr.vercel.app  

@@ -164,4 +164,4 @@ The 55.6% accuracy number will improve as we add features and data. The explaina
 
 ---
 
-*GOALS is built by Amine Kebichi and Nicholas Annunziata as part of EECE5644 — Introduction to Machine Learning and Pattern Recognition at Northeastern University. The live app is available at [https://project-d7avr.vercel.app](https://project-d7avr.vercel.app). The source code is on [GitHub](https://github.com/aminekebichi/GOALS).*
+*GOALS is built by Amine Kebichi and Nicholas Annunziata as part of CS7180 — Vibe Coding at Northeastern University. The live app is available at [https://project-d7avr.vercel.app](https://project-d7avr.vercel.app). The source code is on [GitHub](https://github.com/aminekebichi/GOALS).*

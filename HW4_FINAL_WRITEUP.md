@@ -3,7 +3,7 @@
 
 **Authors:** Amine Kebichi & Nicholas Annunziata
 **Date:** March 22, 2026
-**Course:** EECE5644 — Introduction to Machine Learning and Pattern Recognition
+**Course:** CS7180 — Vibe Coding
 **Topic:** Structured Prompting, Vibe Coding, Claude Code Workflow
 
 ---
