@@ -88,8 +88,13 @@ for _, row in preds.iterrows():
 print(f"Matches: {len(matches)}")
 
 # ── Players ───────────────────────────────────────────────────────────────────
+POSITION_MAP = {1: "defender", 2: "midfielder", 3: "forward"}
+
 of = pd.concat([pd.read_parquet(OUTFIELD_TRAIN), pd.read_parquet(OUTFIELD_TEST)], ignore_index=True)
 gk = pd.concat([pd.read_parquet(GK_TRAIN), pd.read_parquet(GK_TEST)], ignore_index=True)
+
+# Fix position_group using position_id_int — notebook incorrectly set all outfield to 'midfielder'
+of["position_group"] = of["position_id_int"].map(POSITION_MAP).fillna(of["position_group"])
 
 # Aggregate per player per season — mean composite score
 of_agg = (
