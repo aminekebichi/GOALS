@@ -1,7 +1,39 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python -c ':*)"
+      "Bash(python -c ':*)",
+      "Bash(python -c \"from goals_app.services.ml_service import train; metrics = train\\(\\); import json; print\\(json.dumps\\(metrics, indent=2\\)\\)\")",
+      "Bash(grep -E \"\\\\.py$\")",
+      "Bash(pip install *)",
+      "Bash(python -c ' *)",
+      "Bash(python *)",
+      "Bash(npx create-next-app@latest nextjs-app --typescript --tailwind --eslint --app --no-src-dir --import-alias \"@/*\" --no-git --yes)",
+      "Bash(npm install *)",
+      "Bash(npx prisma *)",
+      "Bash(npx vitest *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(npx tsc *)",
+      "Bash(node -e \"const c = require\\('@clerk/nextjs'\\); console.log\\(Object.keys\\(c\\).filter\\(k => k.match\\(/sign|user|button|auth/i\\)\\).join\\('\\\\n'\\)\\)\")",
+      "Bash(node -e \"const c = require\\('@clerk/nextjs'\\); console.log\\(Object.keys\\(c\\).filter\\(k => k.match\\(/signed/i\\)\\).join\\('\\\\n'\\)\\)\")",
+      "Bash(NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_placeholder CLERK_SECRET_KEY=sk_test_placeholder DATABASE_URL=\"postgresql://placeholder\" npm run build)",
+      "Bash(DATABASE_URL=\"postgresql://placeholder\" npx prisma generate)",
+      "Bash(DATABASE_URL=\"postgresql://neondb_owner:npg_jUlqc5ua9hyp@ep-proud-mode-amh2yr6r-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require\" DIRECT_URL=\"postgresql://neondb_owner:npg_jUlqc5ua9hyp@ep-proud-mode-amh2yr6r.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require\" npx prisma db push)",
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(curl *)",
+      "Bash(grep -v \"^$\")",
+      "Bash(npx next *)",
+      "Read(//c/Users/amine/AppData/Local/Temp/claude/C--Users-amine-OneDrive-Documents-git-workspace-GOALS/9695b5d3-b280-4706-862b-80e46a2e6abb/tasks/**)",
+      "Bash(jobs -l)",
+      "Bash(taskkill /PID 15836 /F)",
+      "Bash(cmd.exe /c \"rmdir /s /q \\\\\"C:\\\\\\\\Users\\\\\\\\amine\\\\\\\\OneDrive\\\\\\\\Documents\\\\\\\\git_workspace\\\\\\\\GOALS\\\\\\\\nextjs-app\\\\\\\\.next\\\\\"\")",
+      "Bash(gh api *)",
+      "Bash(python3 *)",
+      "Bash(.venv/Scripts/python.exe -c ' *)",
+      "Bash(ls goals_app/)",
+      "Bash(ls goals_app/services/)"
     ]
   }
 }
