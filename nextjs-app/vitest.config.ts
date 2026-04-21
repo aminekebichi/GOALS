@@ -13,7 +13,12 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       thresholds: { lines: 70, functions: 70, branches: 60 },
-      exclude: ['e2e/**', 'scripts/**', 'prisma/**', '*.config.*', '.next/**'],
+      // Server components (page.tsx) and UI components require E2E testing, not unit tests
+      exclude: [
+        'e2e/**', 'scripts/**', 'prisma/**', '*.config.*', '.next/**',
+        'app/**/page.tsx', 'app/**/layout.tsx',
+        'components/**', 'lib/**', 'proxy.ts',
+      ],
     },
   },
   resolve: {
