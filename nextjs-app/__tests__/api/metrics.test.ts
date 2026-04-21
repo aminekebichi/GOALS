@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET } from "@/app/api/metrics/route";
 import { prisma } from "@/lib/db";
 import { auth } from "@clerk/nextjs/server";
-import { NextRequest } from "next/server";
 
 const mockMetrics = {
   id: 1,
@@ -20,8 +19,7 @@ describe("GET /api/metrics", () => {
 
   it("returns 401 when unauthenticated", async () => {
     vi.mocked(auth).mockReturnValue({ userId: null } as any);
-    const req = new NextRequest("http://localhost/api/metrics");
-    const res = await GET(req);
+    const res = await GET();
     expect(res.status).toBe(401);
   });
 
@@ -30,8 +28,7 @@ describe("GET /api/metrics", () => {
     vi.mocked(prisma.pipelineMetrics.findFirst).mockResolvedValue(
       mockMetrics as any,
     );
-    const req = new NextRequest("http://localhost/api/metrics");
-    const res = await GET(req);
+    const res = await GET();
     const data = await res.json();
 
     expect(res.status).toBe(200);
@@ -44,8 +41,7 @@ describe("GET /api/metrics", () => {
   it("returns 404 when no metrics exist", async () => {
     vi.mocked(auth).mockReturnValue({ userId: "user_123" } as any);
     vi.mocked(prisma.pipelineMetrics.findFirst).mockResolvedValue(null);
-    const req = new NextRequest("http://localhost/api/metrics");
-    const res = await GET(req);
+    const res = await GET();
     expect(res.status).toBe(404);
   });
 
@@ -54,8 +50,7 @@ describe("GET /api/metrics", () => {
     vi.mocked(prisma.pipelineMetrics.findFirst).mockResolvedValue(
       mockMetrics as any,
     );
-    const req = new NextRequest("http://localhost/api/metrics");
-    await GET(req);
+    await GET();
 
     expect(prisma.pipelineMetrics.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -15,8 +15,8 @@ test.describe("Auth protection", () => {
 
   test("sign-in page loads Clerk UI", async ({ page }) => {
     await page.goto("/sign-in");
-    await expect(
-      page.locator("[data-clerk-component]").first(),
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("[data-clerk-component]").first()).toBeVisible({
+      timeout: 10000,
+    });
   });
 });
