@@ -1,44 +1,38 @@
-# GOALS: Using Player Performance to Predict Premier League Match Outcomes
-
-*How composite player scores trained on three seasons of data beat the naive baseline — and what we learned building it.*
+# GOALS: Predicting Premier League Match Outcomes Through Position-Specific Player Performance
 
 ---
 
-GOALS is a predictive analytics tool that uses player performance to predict match outcomes. Future matches have their anticipated outcomes visually displayed on each card. Past match cards show the predicted outcome against the actual outcome, and are interactive — clicking through reveals the individual player performances and metrics that were used to make those predictions in the first place. The idea was simple: instead of treating a match as a coin flip between two teams, treat it as the sum of 22 individual player performances that can be measured, scored, and compared.
-
-This post focuses on the machine learning core of that idea — how we get from raw player stats to a match prediction, and where the model succeeds and falls short.
+GOALS is a predictive analytics tool that surfaces player performance as the mechanism through which match outcomes are anticipated. Future fixtures appear on the calendar with their projected results — win, draw, or loss — derived not from team-level statistics or historical head-to-head records, but from the aggregated performance signatures of the players expected to take the pitch. Past match cards carry this further: they show the predicted outcome alongside the actual result and, upon interaction, expose the individual player metrics and position-specific scores that informed the model's judgment. The central argument of the system is that a football match is not an atomic event between two clubs — it is the emergent product of twenty-two individual performances, each of which can be measured, normalised, and compared on a common scale.
 
 ---
 
-## The Problem With Predicting Football
+## The Prediction Problem
 
-Football is notoriously hard to predict. Unlike basketball, where scoring is frequent and individual talent reliably dominates, a Premier League match can swing on a single deflection. Historically, even the most sophisticated published models struggle to break 60% accuracy on a 3-class problem (home win / draw / away win).
+Football resists prediction in ways that other sports do not. In competitions where scoring is frequent and individual dominance is reliable, statistical models can achieve high accuracy with relatively simple features. The English Premier League offers no such conditions. A single VAR review, a defensive miscommunication in the third minute, or an injury sustained in the warm-up can render pre-match statistical relationships largely irrelevant. Even the most sophisticated published models operate in a narrow band, rarely exceeding 60% three-class accuracy on home win, draw, and away win outcomes.
 
-The naive baseline — just always predicting the home team wins — achieves roughly 44% accuracy over a full Premier League season. That's the floor. Any model worth using needs to do better than that, and ideally explain *why* it made a given prediction rather than operating as a black box.
+The natural baseline against which any model must be measured is the degenerate classifier that always predicts a home win. Given that home sides win approximately 44% of Premier League fixtures in a typical season, this trivial strategy achieves an accuracy that many more elaborate approaches fail to surpass. The requirement, then, is not merely to outperform this baseline — which sets only a low floor — but to do so in a manner that is interpretable and grounded in the observable mechanics of the match.
 
-Our approach: build a performance fingerprint for each player in each match, aggregate those fingerprints to team level, and let the classifier learn which team-level patterns correlate with wins, draws, and losses.
-
----
-
-## Data: Two Sources, Two Granularities
-
-The pipeline pulls from two sources:
-
-**FotMob** (match-level) provides per-match player stats: goals, assists, expected goals (xG), expected assists (xA), shots, dribbles, chances created, tackles won, interceptions, clearances, blocks, recoveries, aerial duels won, and — for goalkeepers — saves, save rate, and xG on target faced. FotMob data was scraped across four Premier League seasons (2021/22 through 2024/25), producing a parquet file with one row per player per match.
-
-**FBref** (season-level) provides aggregated seasonal stats: progressive passes, playing time breakdowns, and miscellaneous defensive actions. These are used as contextual features — they describe a player's season-wide tendencies rather than their performance on a specific night.
-
-The merge step joins the two sources on `(player_name, match_date, team)` using fuzzy string matching (`rapidfuzz`, threshold ≥ 85) to handle the inevitable name inconsistencies between databases — think "Bruno Fernandes" vs "B. Fernandes" vs names with missing diacritics.
+The approach taken here is to construct an explicit performance fingerprint for each player in each fixture, aggregate those fingerprints to the team level, and train a classifier to learn which configurations of team-level performance scores are predictive of the three possible outcomes.
 
 ---
 
-## The Core Idea: Position-Specific Composite Scores
+## Data Acquisition and Integration
 
-A midfielder being intercepted twice is normal. A forward being intercepted twice is a bad sign. A goalkeeper making 8 saves could be exceptional or it could mean their defence was terrible. **Context matters.**
+The pipeline draws on two complementary data sources that differ in granularity and scope.
 
-Rather than feeding raw stats into a classifier and hoping it figures out the context, we encode that context explicitly through four position-specific formulas — one for forwards (ATT), midfielders (MID), defenders (DEF), and goalkeepers (GK). Each formula assigns different weights to different stats based on what's actually important for that position.
+**FotMob** provides match-level player statistics scraped across four Premier League seasons (2021/22 through 2024/25), yielding one record per player per fixture. The available metrics span goal contributions, expected goal indicators (xG, xA), shooting volume, chance creation, dribbling, defensive actions (tackles won, interceptions, clearances, blocks, recoveries, aerial duels won), and — for goalkeepers — saves, save rate, xG on target faced, diving saves, saves inside the box, high claims, and sweeper actions.
 
-Before applying any formula, all input stats are **z-score normalised** — fitted on the training seasons only (2021/22, 2022/23, 2023/24), never on the test season. This means a score of +1.5 always means "1.5 standard deviations above average for a player in that position," regardless of season-to-season statistical drift.
+**FBref** contributes season-level aggregated statistics, most notably progressive passes, playing time distributions, and supplementary defensive metrics. These serve as contextual modifiers that describe a player's broader tendencies across the full season rather than their performance on any given night.
+
+Merging the two sources requires reconciling player name representations across databases. FBref records names with full diacritical marks and consistent formatting; FotMob representations vary in ways that do not follow a predictable rule. A fuzzy join on the composite key of player name, match date, and club — using token sort ratio matching with a minimum threshold of 85 — resolves the majority of discrepancies while filtering out spurious matches.
+
+---
+
+## Position-Specific Composite Scoring
+
+The foundational design decision of the model is the rejection of a position-agnostic feature space. A midfielder recording two interceptions is performing a routine defensive function; a striker recording the same is demonstrating something unusual about either their defensive recovery or their positioning — the statistical value differs materially depending on role context. Similarly, a goalkeeper making eight saves in a match may be exceptional or may be a symptom of a badly organised defence. Raw statistics, unmediated by positional context, conflate these interpretive differences.
+
+To encode this context explicitly, four position-specific linear composite functions are defined — one each for forwards (ATT), midfielders (MID), defenders (DEF), and goalkeepers (GK). Each function assigns empirically motivated weights to the statistics most relevant to that position. Prior to the application of any composite function, all input metrics are z-score standardised using parameters fitted exclusively on the three training seasons (2021/22, 2022/23, 2023/24). The scaler is never refit on the held-out test season; this constraint is essential to prevent information leakage and to ensure that the composite scores remain on a common interpretive scale across seasons, where a value of +1.5 consistently denotes performance 1.5 standard deviations above the positional mean.
 
 **ATT (Forwards):**
 ```
@@ -46,7 +40,7 @@ ATT = 0.25×(Goals + Assists) + 0.20×xG + 0.15×xA
     + 0.15×Dribbles + 0.10×Shots + 0.10×ChancesCreated + 0.05×Recoveries
 ```
 
-Goal involvements carry the most weight (0.25), supported by expected goal metrics that capture shot quality beyond just whether the ball crossed the line. A forward who regularly creates chances but can't finish still scores positively — xG rewards the process.
+Goal and assist contributions receive the highest weight, acknowledging that direct involvement in scoring remains the primary function of an attacker. Expected goal metrics supplement this by capturing shot quality independent of finishing variance — a forward who generates high-xG opportunities and consistently reaches dangerous positions scores positively even in matches where the ball does not cross the line.
 
 **MID (Midfielders):**
 ```
@@ -54,7 +48,7 @@ MID = 0.20×ProgressivePasses + 0.20×ChancesCreated + 0.15×xA
     + 0.15×(Goals + Assists) + 0.15×TacklesWon + 0.10×Interceptions + 0.05×Recoveries
 ```
 
-Progressive passing and chance creation are co-weighted at 0.20 each, reflecting the dual role of a complete midfielder — building up play and pressing off the ball. Defensive contributions (tackles, interceptions) account for 25% of the total, preventing the formula from rewarding forwards-playing-midfielder performances.
+Progressive ball-carrying and chance creation are co-weighted, reflecting the dual mandate of the modern central midfielder. Defensive contributions — tackles and interceptions — account for 25% of the composite, ensuring that the score does not reward a positionally irresponsible midfielder whose statistics resemble those of an attacking player.
 
 **DEF (Defenders):**
 ```
@@ -62,7 +56,7 @@ DEF = 0.25×TacklesWon + 0.20×AerialDuelsWon + 0.20×Clearances
     + 0.15×Interceptions + 0.10×Blocks + 0.10×ProgressivePasses
 ```
 
-Defensive solidity comes first. Progressive passing is included at 10% weight because modern defenders who can carry the ball out of defence (think Trent Alexander-Arnold) provide genuine value — but it's not the primary signal.
+Defensive solidity metrics are assigned the dominant share of the composite weight. Progressive passing is included at 10% to acknowledge the growing tactical value of defenders capable of initiating build-up play, though it is deliberately subordinated to the primary defensive signals.
 
 **GK (Goalkeepers):**
 ```
@@ -70,98 +64,86 @@ GK = 0.30×Saves + 0.25×xGOT + 0.15×DivingSaves + 0.15×SavesInsideBox
    + 0.10×HighClaims + 0.05×SweeperActions
 ```
 
-Saves are weighted most (0.30), but xG on target faced (xGOT) acts as a difficulty-adjusted modifier — making 5 saves against xGOT of 4.5 is much more impressive than making 5 saves against xGOT of 1.2.
+Save volume carries the largest individual weight, supplemented by xG on target faced as a difficulty-adjusted modifier. A goalkeeper who makes five saves against an accumulated xGOT of 4.5 is performing qualitatively differently from one who makes five saves against xGOT of 1.2; the composite function is sensitive to this distinction.
 
-The output of applying these formulas is a single composite z-score per player per match, placed on a common scale across all four positions. A score of +2.0 means "exceptional performance regardless of position." A score of -1.5 means "well below average."
+The output of each positional function is a single z-score per player per match, expressed on a unified scale across all four positions. A composite score of +2.0 denotes exceptional performance regardless of role; a score of −1.5 indicates a performance well below the positional average.
 
 ---
 
-## From Players to Teams: The Feature Vector
+## From Individual Scores to Match-Level Features
 
-A match needs a fixed-length feature representation. We aggregate the per-player composite scores to the team level by summing the scores of each position group's starting XI:
+Having obtained per-player composite scores, the transition to match-level classification requires a fixed-length feature representation. The team-level feature vector is constructed by summing the composite scores of each position group within the starting eleven:
 
 ```
-Home team: [sum of ATT scores, sum of MID scores, sum of DEF scores, GK score]
-Away team: [sum of ATT scores, sum of MID scores, sum of DEF scores, GK score]
+Home team: [Σ ATT scores, Σ MID scores, Σ DEF scores, GK score]
+Away team: [Σ ATT scores, Σ MID scores, Σ DEF scores, GK score]
 ```
 
-This gives us **8 features per match** — the home team's four position-group scores and the away team's four. The intuition: a match where the home team has a combined ATT score of +6.3 and the away team has -1.2 should, all else being equal, favour the home side in attack.
+This yields **eight features per match** — four for the home side and four for the away side. The aggregation is additive rather than averaged in order to preserve the effect of squad depth within a position group; a team with three high-performing forwards contributing collectively is meaningfully different from a team with one exceptional forward and two below-average ones.
 
 ---
 
-## The Classifier
+## Classification and Validation
 
-With 8-feature match vectors and 3-class labels (H / D / A), we trained two classifiers:
+Two classifier architectures were evaluated against the eight-dimensional match feature space:
 
-- **Random Forest Classifier** — 100 trees, default depth, `class_weight='balanced'`
-- **Logistic Regression** — L2 regularisation, `class_weight='balanced'`
+- **Logistic Regression** with L2 regularisation
+- **Random Forest Classifier** with 100 estimators at default depth
 
-The `class_weight='balanced'` setting is essential. Premier League outcomes are not uniformly distributed — roughly 45% home wins, 25% draws, 30% away wins. Without balancing, the classifier learns to predict home wins constantly and achieves 44% accuracy while being useless for draws and away wins. Balanced weighting forces the model to genuinely learn all three classes.
+Both models were trained with `class_weight='balanced'` to counteract the structural class imbalance inherent in Premier League outcomes — approximately 45% home wins, 25% draws, and 30% away wins. Without this correction, the classifier converges toward near-exclusive home win prediction, achieving the naive baseline accuracy while failing to generalise across all three outcome classes.
 
-**Walk-forward cross-validation** was used within the training seasons. This means validation always uses data from seasons later in time than training — seasons 2021/22 and 2022/23 train to validate on 2023/24, then all three seasons train for the final model. Standard k-fold shuffling would leak future match results into training and produce falsely optimistic validation scores. We never shuffle.
+Temporal integrity in validation is treated as a non-negotiable constraint. Walk-forward cross-validation was applied within the training period: earlier seasons serve as training folds and later seasons as validation folds, with the ordering strictly preserved. Standard k-fold cross-validation with shuffling would introduce future match results into the training distribution, producing validation estimates that are optimistic and methodologically unsound. No shuffling is applied at any stage of the pipeline.
 
 ---
 
-## Results on the 2024/25 Season
+## Evaluation on the Held-Out Test Season
 
-The 2024/25 season (266 matches) was the held-out test set, never used for fitting or validation at any stage.
+The 2024/25 season (266 Premier League fixtures) constitutes the held-out test set. No observations from this season are used during feature normalisation, model training, or hyperparameter selection.
 
 | Model | Accuracy | Macro F1 |
 |-------|----------|----------|
 | Logistic Regression | **55.6%** | **0.549** |
-| Random Forest | 54.8% | 0.535 |
-| Naive baseline (always home win) | 44.0% | ~0.21 |
+| Random Forest Classifier | 54.8% | 0.535 |
+| Naive baseline (home win always) | 44.0% | ~0.21 |
 
-Logistic Regression outperforms the Random Forest slightly — likely because the 8-feature linear decision boundary is appropriate for a relatively clean signal, while the Random Forest has more capacity than the data can reliably justify.
+Logistic Regression achieves marginally superior performance across both metrics. This result is consistent with the hypothesis that the eight-feature representation encodes a relatively linear signal — the Random Forest's additional model capacity does not translate into improved generalisation and may be inducing a modest degree of overfitting to training-season patterns.
 
-Both models beat the naive baseline by a meaningful margin. Macro F1 of 0.549 means the model is doing non-trivial work across all three classes, not just riding home-win prevalence.
+Both models improve substantially over the naive baseline in terms of Macro F1, which weights each class equally. The naive classifier, despite its 44% accuracy, achieves a Macro F1 of approximately 0.21 because it assigns zero probability mass to draws and away wins; the trained models achieve 0.549 and 0.535 respectively, indicating genuine discrimination across all three outcome classes.
 
-That said, 55.6% is not a winning formula for a sportsbook. Football has high inherent randomness — VAR decisions, injuries in warm-up, red cards in the 10th minute — that no statistical model trained on historical performance can capture. The honest framing: our model makes better-than-chance predictions that are explainable through the underlying player performance data.
-
----
-
-## What Makes It Interesting: The Explainability Layer
-
-The prediction number is one output. The more interesting output is *why*.
-
-Because every match prediction traces back to summed composite scores, which trace back to individual player z-scores, which trace back to weighted combinations of specific stats — the entire chain is auditable. In the GOALS app, clicking a past match card shows:
-
-- Which player had the highest composite z-score (Man of the Match)
-- Every player's position-specific score, colour-coded by standard deviation from average (red for above average, amber for average, blue for below average)
-- Each player's individual stat breakdown — the raw numbers that fed into their composite score
-
-A user can see not just "the model predicted Arsenal to win" but "Arsenal's forward line had a combined ATT score of +4.8 against Chelsea's +1.1, driven largely by Bukayo Saka's exceptional xA and dribble numbers."
-
-That's a different kind of sports analytics than a win probability percentage with no lineage.
+A Macro F1 of 0.549 is meaningful, though it reflects the fundamental ceiling imposed by the stochastic nature of the sport. Outcomes that are determined by low-probability events — deflections, goalkeeper errors, red cards in the opening minutes — cannot be recovered from historical performance features regardless of the model's sophistication. The system's claim is not predictive omniscience, but interpretable and statistically grounded inference.
 
 ---
 
-## The Tech (Briefly)
+## Prediction Transparency and the Audit Trail
 
-The ML pipeline runs entirely in Python notebooks (scikit-learn, pandas, polars). Match-level FotMob data was scraped using a custom async scraper; FBref season stats were collected separately. The final predictions were exported as a parquet file, then seeded into a Neon PostgreSQL database.
+The match-level prediction is one output of the system. Arguably more consequential is the traceable chain of evidence that connects the prediction to its constituent inputs. Because every match prediction is a deterministic function of summed composite scores, which are themselves deterministic functions of weighted player statistics, the full derivation is auditable at any level of granularity.
 
-The web app is a Next.js 16 application deployed on Vercel, backed by Prisma for type-safe database access and Clerk for authentication. The analytics-heavy pages (Player Stats, Pipeline Metrics) require sign-in; the match calendar and all match/player detail pages are fully public.
+In practice, this means that a past match card in the application is not merely a binary record of whether the model was correct. It surfaces the Man of the Match designation — defined as the player with the highest composite z-score among those who completed at least 45 minutes — alongside the full team rosters, each player annotated with their positional score and colour-coded by standard deviation band (above average, average, or below average). Selecting an individual player reveals the complete statistical breakdown: every metric that contributed to their composite score, the raw value recorded for that fixture, and its normalised representation.
 
----
-
-## What We'd Do Differently
-
-**More features.** The 8 composite scores capture within-game performance well but ignore context: home/away advantage beyond what's implicitly in the feature, recent form (last 5 match composite score rolling average), injury absences, and head-to-head history. Adding rolling form features in particular would likely improve accuracy by 2–3 points.
-
-**Richer validation.** Walk-forward CV across three seasons isn't many folds. More historical data — going back to 2018/19 — would give the model a better chance to distinguish signal from noise.
-
-**Calibrated probabilities.** The classifier outputs raw probabilities (P(H), P(D), P(A)) that sum to 1 but aren't calibrated against actual outcome frequencies. Platt scaling or isotonic regression post-processing would make the displayed confidence percentages more trustworthy.
-
-**Player absence handling.** Currently, if a star player is injured and doesn't appear in the FotMob starting XI, their composite score simply contributes 0. A better approach would incorporate season-average scores for expected starters who don't play, rather than treating absences as zero contribution.
+The consequence of this architecture is that a user can reconstruct precisely why the model reached a given conclusion. A prediction that a particular team would win is not an opaque probability estimate — it is the downstream expression of a specific configuration of player performance metrics that, in the training data, were historically associated with winning. This interpretability is a deliberate design property rather than an incidental one.
 
 ---
 
-## Closing
+## Infrastructure
 
-Football prediction is a hard problem that attracts a lot of overconfident solutions. GOALS doesn't claim to solve it — it claims to make better-than-chance predictions in a way that's transparent about the reasoning. Every card in the app is a testable hypothesis: "this team's players performed at a level that historically correlates with winning." You can see the evidence, challenge the weights, and form your own view.
+The machine learning pipeline is implemented across seven sequential Jupyter notebooks (scikit-learn, pandas, polars), with each stage producing intermediate artefacts consumed by the next. Match-level FotMob data was collected via a custom asynchronous scraper; FBref seasonal statistics were acquired separately. Final predictions were exported as structured parquet files and seeded into a Neon PostgreSQL database, from which the web application reads exclusively.
 
-The 55.6% accuracy number will improve as we add features and data. The explainability layer — the player-level audit trail — is the part we're most proud of.
+The web application is a Next.js 16 deployment on Vercel, using Prisma for type-safe database access and Clerk for authentication. Aggregate player statistics and model evaluation metrics are accessible to authenticated users; the match calendar and individual match and player detail pages are publicly accessible without credentials.
 
 ---
 
-*GOALS is built by Amine Kebichi and Nicholas Annunziata as part of CS7180 — Vibe Coding at Northeastern University. The live app is available at [https://project-d7avr.vercel.app](https://project-d7avr.vercel.app). The source code is on [GitHub](https://github.com/aminekebichi/GOALS).*
+## Directions for Future Work
+
+Several extensions are likely to yield measurable improvements in predictive performance.
+
+The current feature representation captures within-match player performance but is temporally isolated — each fixture is treated as independent of the matches immediately preceding it. Incorporating rolling performance windows (e.g., composite score averages over the prior five fixtures) would allow the model to account for in-season form trajectories, which are known to be predictive of short-term outcomes.
+
+The treatment of absent players warrants reconsideration. When a player does not appear in the FotMob starting eleven — whether due to injury, suspension, or tactical omission — their contribution to the team-level composite is implicitly set to zero. A more principled approach would impute the player's season-average composite score, preserving the distinction between a team whose key forward is absent and one whose key forward plays but performs poorly.
+
+The classifier outputs raw softmax probabilities whose calibration has not been validated against empirical outcome frequencies. Applying isotonic regression or Platt scaling post-processing would bring the displayed confidence percentages into closer correspondence with observed win rates at equivalent probability values, improving the reliability of the uncertainty estimates surfaced to users.
+
+Finally, extending the historical training window beyond three seasons would provide a more statistically robust basis for the walk-forward validation procedure and reduce the sensitivity of the learned weights to season-specific anomalies.
+
+---
+
+*GOALS was developed by Amine Kebichi and Nicholas Annunziata as part of CS7180 — Vibe Coding at Northeastern University. The live application is available at [https://project-d7avr.vercel.app](https://project-d7avr.vercel.app). The source code is hosted on [GitHub](https://github.com/aminekebichi/GOALS).*
