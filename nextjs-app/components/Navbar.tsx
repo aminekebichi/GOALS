@@ -7,7 +7,7 @@ import { SignInButton, UserButton, useAuth } from "@clerk/nextjs";
 const publicLinks = [{ href: "/", label: "Matches" }];
 const protectedLinks = [
   { href: "/stats", label: "Player Stats" },
-  { href: "/settings", label: "Settings" },
+  { href: "/settings", label: "Metrics" },
 ];
 
 export default function Navbar() {
