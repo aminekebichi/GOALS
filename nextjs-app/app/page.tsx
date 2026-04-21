@@ -19,18 +19,24 @@ export default async function HomePage({
     ? seasonParam!
     : "2025_2026";
 
+  const nowIso = new Date().toISOString();
+
   const raw = await prisma.match.findMany({
-    where: { season },
+    where: {
+      season,
+      OR: [
+        // Future matches — always show
+        { date: { gt: new Date() } },
+        // Past matches — only if at least one player record was scraped
+        { date: { lte: new Date() }, matchPlayers: { some: {} } },
+      ],
+    },
     orderBy: { date: "desc" },
   });
-  const nowIso = new Date().toISOString();
-  const matches = raw.map((m) => ({ ...m, date: m.date.toISOString() }));
 
+  const matches = raw.map((m) => ({ ...m, date: m.date.toISOString() }));
   const upcoming = matches.filter((m) => m.date > nowIso);
-  // Only show played matches where result data is available
-  const played = matches.filter(
-    (m) => m.date <= nowIso && m.homeGoals !== null && m.awayGoals !== null,
-  );
+  const played = matches.filter((m) => m.date <= nowIso);
 
   return (
     <div className="min-h-screen bg-[#0A0E1A]">
