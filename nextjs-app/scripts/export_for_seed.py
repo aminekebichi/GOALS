@@ -15,11 +15,13 @@ import pandas as pd
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent.parent
-PREDICTIONS  = ROOT / "data/processed/datasets/match_predictions_test.parquet"
-OUTFIELD_RAW = ROOT / "data/47/2024_2025/output/outfield_players.parquet"
-OUTFIELD     = ROOT / "data/processed/datasets/outfield_train_scaled.parquet"
-GK           = ROOT / "data/processed/datasets/gk_train_scaled.parquet"
-OUT_FILE     = Path(__file__).parent / "seed_data.json"
+PREDICTIONS     = ROOT / "data/processed/datasets/match_predictions_test.parquet"
+OUTFIELD_RAW    = ROOT / "data/47/2024_2025/output/outfield_players.parquet"
+OUTFIELD_TRAIN  = ROOT / "data/processed/datasets/outfield_train_scaled.parquet"
+OUTFIELD_TEST   = ROOT / "data/processed/datasets/outfield_test_scaled.parquet"
+GK_TRAIN        = ROOT / "data/processed/datasets/gk_train_scaled.parquet"
+GK_TEST         = ROOT / "data/processed/datasets/gk_test_scaled.parquet"
+OUT_FILE        = Path(__file__).parent / "seed_data.json"
 
 
 def safe_float(v):
@@ -86,8 +88,8 @@ for _, row in preds.iterrows():
 print(f"Matches: {len(matches)}")
 
 # ── Players ───────────────────────────────────────────────────────────────────
-of = pd.read_parquet(OUTFIELD)
-gk = pd.read_parquet(GK)
+of = pd.concat([pd.read_parquet(OUTFIELD_TRAIN), pd.read_parquet(OUTFIELD_TEST)], ignore_index=True)
+gk = pd.concat([pd.read_parquet(GK_TRAIN), pd.read_parquet(GK_TEST)], ignore_index=True)
 
 # Aggregate per player per season — mean composite score
 of_agg = (
@@ -106,18 +108,20 @@ POS_SCORE = {"forward": "attScore", "midfielder": "midScore",
 players = []
 seen = set()
 for _, row in pd.concat([of_agg, gk_agg], ignore_index=True).iterrows():
-    key = (str(row["player_id"]), str(row["season"]))
+    pid   = str(row["player_id"])
+    seas  = str(row["season"])
+    key   = (pid, seas)
     if key in seen:
         continue
     seen.add(key)
     pos = str(row["position_group"])
     score_key = POS_SCORE.get(pos)
     entry = {
-        "id":       str(row["player_id"]),
+        "id":       f"{pid}_{seas}",   # unique across seasons
         "name":     str(row["player_name"]),
         "team":     str(row["team_name"]),
         "position": pos,
-        "season":   str(row["season"]),
+        "season":   seas,
         "attScore": None, "midScore": None,
         "defScore": None, "gkScore":  None,
     }

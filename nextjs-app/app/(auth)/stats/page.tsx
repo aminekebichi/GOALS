@@ -2,24 +2,7 @@ import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import PlayerRow from '@/components/PlayerRow';
-
-async function getPlayers(searchParams: { position?: string; team?: string }) {
-  const params = new URLSearchParams();
-  if (searchParams.position) params.set('position', searchParams.position);
-  if (searchParams.team) params.set('team', searchParams.team);
-
-  try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/api/players?${params}`,
-      { cache: 'no-store' }
-    );
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.players ?? [];
-  } catch {
-    return [];
-  }
-}
+import { prisma } from '@/lib/db';
 
 const POSITIONS = ['ATT', 'MID', 'DEF', 'GK'];
 
@@ -32,7 +15,10 @@ export default async function StatsPage({
   if (!userId) redirect('/sign-in');
 
   const params = await searchParams;
-  const players = await getPlayers(params);
+  const where: Record<string, string> = { season: '2024_2025' };
+  if (params.position) where.position = params.position.toLowerCase();
+  if (params.team) where.team = params.team;
+  const players = await prisma.player.findMany({ where, orderBy: { name: 'asc' } });
 
   return (
     <div className="min-h-screen bg-[#0A0E1A]">

@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 interface Match {
   id: string;
   homeTeam: string;
@@ -54,9 +56,10 @@ export default function MatchCard({ match }: { match: Match }) {
   });
 
   return (
-    <div
+    <Link
+      href={`/matches/${match.id}`}
       data-testid="match-card"
-      className="bg-[#111827] border border-[#1C2333] rounded-xl p-5 hover:border-[#FF4B44]/40 transition-colors flex flex-col gap-4"
+      className="bg-[#111827] border border-[#1C2333] rounded-xl p-5 hover:border-[#FF4B44]/40 transition-colors flex flex-col gap-4 cursor-pointer"
     >
       {/* Header row */}
       <div className="flex justify-between items-center">
@@ -126,6 +129,6 @@ export default function MatchCard({ match }: { match: Match }) {
           )}
         </div>
       )}
-    </div>
+    </Link>
   );
 }
