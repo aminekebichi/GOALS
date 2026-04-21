@@ -8,9 +8,9 @@
  *   4. Run: npx ts-node scripts/seed_db.ts
  */
 
-import { PrismaClient } from '@prisma/client';
-import * as fs from 'fs';
-import * as path from 'path';
+import { PrismaClient } from "@prisma/client";
+import * as fs from "fs";
+import * as path from "path";
 
 const prisma = new PrismaClient();
 
@@ -78,14 +78,17 @@ interface SeedData {
 }
 
 async function main() {
-  const dataPath = path.join(__dirname, 'seed_data.json');
+  const fileArg = process.argv.find((a) => a.startsWith("--file="));
+  const fileName = fileArg ? fileArg.replace("--file=", "") : "seed_data.json";
+  const dataPath = path.join(__dirname, fileName);
 
   if (!fs.existsSync(dataPath)) {
-    console.error('seed_data.json not found. Run: python scripts/export_for_seed.py > scripts/seed_data.json');
+    console.error(`${fileName} not found.`);
     process.exit(1);
   }
+  console.log(`Seeding from ${fileName}...`);
 
-  const data: SeedData = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
+  const data: SeedData = JSON.parse(fs.readFileSync(dataPath, "utf-8"));
 
   console.log(`Seeding ${data.matches.length} matches...`);
   for (const match of data.matches) {
@@ -105,24 +108,32 @@ async function main() {
     });
   }
 
-  console.log(`Seeding ${data.matchPlayers?.length ?? 0} match player records...`);
+  console.log(
+    `Seeding ${data.matchPlayers?.length ?? 0} match player records...`,
+  );
   const BATCH = 100;
   const mp = data.matchPlayers ?? [];
   for (let i = 0; i < mp.length; i += BATCH) {
     const batch = mp.slice(i, i + BATCH);
     await Promise.all(
       batch.map((p) =>
-        prisma.matchPlayer.upsert({ where: { id: p.id }, update: p, create: p })
-      )
+        prisma.matchPlayer.upsert({
+          where: { id: p.id },
+          update: p,
+          create: p,
+        }),
+      ),
     );
   }
 
-  console.log(`Seeding ${data.metrics.length} metrics records...`);
-  for (const metric of data.metrics) {
-    await prisma.pipelineMetrics.create({ data: metric });
+  if (data.metrics.length > 0) {
+    console.log(`Seeding ${data.metrics.length} metrics records...`);
+    for (const metric of data.metrics) {
+      await prisma.pipelineMetrics.create({ data: metric });
+    }
   }
 
-  console.log('Seed complete.');
+  console.log("Seed complete.");
 }
 
 main()

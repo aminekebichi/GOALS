@@ -13,7 +13,7 @@
     "test:e2e": "playwright test",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
-    "db:seed": "ts-node --project tsconfig.json scripts/seed_db.ts"
+    "db:seed": "ts-node --project tsconfig.json --esm scripts/seed_db.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.2.3",
@@ -40,6 +40,7 @@
     "jsdom": "^29.0.2",
     "msw": "^2.13.4",
     "tailwindcss": "^4",
+    "ts-node": "^10.9.2",
     "typescript": "^5",
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^3.2.4"

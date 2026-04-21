@@ -1,8 +1,8 @@
-import '@testing-library/jest-dom';
-import { vi } from 'vitest';
+import "@testing-library/jest-dom";
+import { vi } from "vitest";
 
 // Mock Prisma client for unit tests
-vi.mock('@/lib/db', () => ({
+vi.mock("@/lib/db", () => ({
   prisma: {
     match: {
       findMany: vi.fn(),
@@ -26,7 +26,7 @@ vi.mock('@/lib/db', () => ({
 }));
 
 // Mock Clerk auth (v7 async API)
-vi.mock('@clerk/nextjs/server', () => ({
+vi.mock("@clerk/nextjs/server", () => ({
   auth: vi.fn(async () => ({ userId: null })),
   clerkMiddleware: vi.fn(),
   createRouteMatcher: vi.fn(() => () => false),

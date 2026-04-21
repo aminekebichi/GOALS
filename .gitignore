@@ -63,3 +63,5 @@ HW4_FINAL_WRITEUP.md
 HW4_ Claude Code Workflow & TDD.pdf
 hw4_writeup.pdf
 HW5_ Custom Skill + MCP Integration.pdf
+.vercel
+.env*.local

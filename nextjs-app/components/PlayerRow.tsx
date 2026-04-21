@@ -10,17 +10,25 @@ interface Player {
 }
 
 const POSITION_LABELS: Record<string, string> = {
-  ATT: 'Forward',
-  MID: 'Midfielder',
-  DEF: 'Defender',
-  GK: 'Goalkeeper',
+  ATT: "Forward",
+  MID: "Midfielder",
+  DEF: "Defender",
+  GK: "Goalkeeper",
 };
 
 export default function PlayerRow({ player }: { player: Player }) {
   const score =
-    player.attScore ?? player.midScore ?? player.defScore ?? player.gkScore ?? 0;
+    player.attScore ??
+    player.midScore ??
+    player.defScore ??
+    player.gkScore ??
+    0;
   const scoreColor =
-    score > 1.5 ? 'text-[#FF4B44]' : score > 0.5 ? 'text-[#C9A84C]' : 'text-[#8B95A8]';
+    score > 1.5
+      ? "text-[#FF4B44]"
+      : score > 0.5
+        ? "text-[#C9A84C]"
+        : "text-[#8B95A8]";
 
   return (
     <div className="flex items-center justify-between py-3 px-4 border-b border-[#1C2333] last:border-0 hover:bg-[#1C2333]/50 transition-colors">

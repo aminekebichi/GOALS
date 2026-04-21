@@ -1,23 +1,42 @@
-import { notFound } from 'next/navigation';
-import Link from 'next/link';
-import Navbar from '@/components/Navbar';
-import { prisma } from '@/lib/db';
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import Navbar from "@/components/Navbar";
+import { prisma } from "@/lib/db";
 
-function StatRow({ label, value, unit = '' }: { label: string; value: number | null | undefined; unit?: string }) {
+function StatRow({
+  label,
+  value,
+  unit = "",
+}: {
+  label: string;
+  value: number | null | undefined;
+  unit?: string;
+}) {
   if (value === null || value === undefined) return null;
   const display = Number.isInteger(value) ? value : value.toFixed(2);
   return (
     <div className="flex items-center justify-between py-2.5 border-b border-[#1C2333] last:border-0">
       <span className="text-sm text-[#8B95A8]">{label}</span>
-      <span className="text-sm font-semibold text-[#F0F2F8] tabular-nums">{display}{unit}</span>
+      <span className="text-sm font-semibold text-[#F0F2F8] tabular-nums">
+        {display}
+        {unit}
+      </span>
     </div>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="bg-[#111827] border border-[#1C2333] rounded-xl p-5 mb-4">
-      <h3 className="text-xs text-[#8B95A8] uppercase tracking-wider mb-3 font-bold">{title}</h3>
+      <h3 className="text-xs text-[#8B95A8] uppercase tracking-wider mb-3 font-bold">
+        {title}
+      </h3>
       {children}
     </div>
   );
@@ -37,15 +56,16 @@ export default async function PlayerGamePage({
 
   if (!match || !player) notFound();
 
-  const isGk = player.position === 'goalkeeper';
+  const isGk = player.position === "goalkeeper";
   const scoreColor =
     (player.compositeScore ?? 0) >= 0.5
-      ? '#FF4B44'
+      ? "#FF4B44"
       : (player.compositeScore ?? 0) >= -0.5
-      ? '#C9A84C'
-      : '#4488FF';
+        ? "#C9A84C"
+        : "#4488FF";
 
-  const posLabel = player.position.charAt(0).toUpperCase() + player.position.slice(1);
+  const posLabel =
+    player.position.charAt(0).toUpperCase() + player.position.slice(1);
 
   return (
     <div className="min-h-screen bg-[#0A0E1A]">
@@ -67,23 +87,36 @@ export default async function PlayerGamePage({
                   ⭐ Man of the Match
                 </p>
               )}
-              <h1 className="text-2xl font-bold text-white">{player.playerName}</h1>
+              <h1 className="text-2xl font-bold text-white">
+                {player.playerName}
+              </h1>
               <p className="text-sm text-[#8B95A8] mt-1">
                 {player.teamName} · {posLabel}
               </p>
               <p className="text-xs text-[#8B95A8] mt-1">
-                {match.date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                {' · '}
-                {match.homeTeam} {match.homeGoals ?? '?'} – {match.awayGoals ?? '?'} {match.awayTeam}
+                {match.date.toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })}
+                {" · "}
+                {match.homeTeam} {match.homeGoals ?? "?"} –{" "}
+                {match.awayGoals ?? "?"} {match.awayTeam}
               </p>
             </div>
             <div className="text-right">
-              <p className="text-3xl font-bold tabular-nums" style={{ color: scoreColor }}>
-                {(player.compositeScore ?? 0) >= 0 ? '+' : ''}{player.compositeScore?.toFixed(2) ?? '—'}
+              <p
+                className="text-3xl font-bold tabular-nums"
+                style={{ color: scoreColor }}
+              >
+                {(player.compositeScore ?? 0) >= 0 ? "+" : ""}
+                {player.compositeScore?.toFixed(2) ?? "—"}
               </p>
               <p className="text-xs text-[#8B95A8] mt-0.5">composite score</p>
               {player.minutesPlayed !== null && (
-                <p className="text-xs text-[#8B95A8] mt-1">{Math.round(player.minutesPlayed ?? 0)} min played</p>
+                <p className="text-xs text-[#8B95A8] mt-1">
+                  {Math.round(player.minutesPlayed ?? 0)} min played
+                </p>
               )}
             </div>
           </div>
@@ -94,12 +127,27 @@ export default async function PlayerGamePage({
           <>
             <Section title="Goalkeeping">
               <StatRow label="Saves" value={player.saves} />
-              <StatRow label="Save rate" value={player.saveRate !== null ? player.saveRate! * 100 : null} unit="%" />
-              <StatRow label="Goals prevented (xGOT − conceded)" value={player.goalsPrevented} />
+              <StatRow
+                label="Save rate"
+                value={player.saveRate !== null ? player.saveRate! * 100 : null}
+                unit="%"
+              />
+              <StatRow
+                label="Goals prevented (xGOT − conceded)"
+                value={player.goalsPrevented}
+              />
               <StatRow label="xG on target faced" value={player.xGotFaced} />
             </Section>
             <Section title="Distribution & Defending">
-              <StatRow label="Pass accuracy" value={player.passAccuracy !== null ? player.passAccuracy! * 100 : null} unit="%" />
+              <StatRow
+                label="Pass accuracy"
+                value={
+                  player.passAccuracy !== null
+                    ? player.passAccuracy! * 100
+                    : null
+                }
+                unit="%"
+              />
               <StatRow label="Clearances" value={player.clearances} />
               <StatRow label="Interceptions" value={player.interceptions} />
               <StatRow label="Recoveries" value={player.recoveries} />
@@ -118,7 +166,15 @@ export default async function PlayerGamePage({
               <StatRow label="Chances created" value={player.chancesCreated} />
             </Section>
             <Section title="Possession">
-              <StatRow label="Pass accuracy" value={player.passAccuracy !== null ? player.passAccuracy! * 100 : null} unit="%" />
+              <StatRow
+                label="Pass accuracy"
+                value={
+                  player.passAccuracy !== null
+                    ? player.passAccuracy! * 100
+                    : null
+                }
+                unit="%"
+              />
               <StatRow label="Successful dribbles" value={player.dribbles} />
             </Section>
             <Section title="Defending">

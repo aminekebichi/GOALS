@@ -1,19 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
-import { prisma } from '@/lib/db';
+import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { prisma } from "@/lib/db";
 
-export async function GET(_req: NextRequest) {
+export async function GET() {
   const { userId } = await auth();
   if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const metrics = await prisma.pipelineMetrics.findFirst({
-    orderBy: { trainedAt: 'desc' },
+    orderBy: { trainedAt: "desc" },
   });
 
   if (!metrics) {
-    return NextResponse.json({ error: 'No metrics found' }, { status: 404 });
+    return NextResponse.json({ error: "No metrics found" }, { status: 404 });
   }
 
   return NextResponse.json({

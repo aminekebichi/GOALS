@@ -1,20 +1,22 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { SignInButton, UserButton, useAuth } from '@clerk/nextjs';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { SignInButton, UserButton, useAuth } from "@clerk/nextjs";
 
-const publicLinks = [{ href: '/', label: 'Matches' }];
+const publicLinks = [{ href: "/", label: "Matches" }];
 const protectedLinks = [
-  { href: '/stats', label: 'Player Stats' },
-  { href: '/settings', label: 'Settings' },
+  { href: "/stats", label: "Player Stats" },
+  { href: "/settings", label: "Settings" },
 ];
 
 export default function Navbar() {
   const pathname = usePathname();
   const { isSignedIn } = useAuth();
 
-  const allLinks = isSignedIn ? [...publicLinks, ...protectedLinks] : publicLinks;
+  const allLinks = isSignedIn
+    ? [...publicLinks, ...protectedLinks]
+    : publicLinks;
 
   return (
     <nav className="bg-[#111827] border-b border-[#1C2333] px-6 py-4 flex items-center justify-between">
@@ -29,8 +31,8 @@ export default function Navbar() {
               href={href}
               className={`text-sm transition-colors ${
                 pathname === href
-                  ? 'text-[#FF4B44] font-medium'
-                  : 'text-[#8B95A8] hover:text-[#F0F2F8]'
+                  ? "text-[#FF4B44] font-medium"
+                  : "text-[#8B95A8] hover:text-[#F0F2F8]"
               }`}
             >
               {label}

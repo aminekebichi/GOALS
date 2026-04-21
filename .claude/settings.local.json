@@ -33,7 +33,23 @@
       "Bash(python3 *)",
       "Bash(.venv/Scripts/python.exe -c ' *)",
       "Bash(ls goals_app/)",
-      "Bash(ls goals_app/services/)"
+      "Bash(ls goals_app/services/)",
+      "Bash(git commit -m 'fix: set Vercel root directory to nextjs-app/ *)",
+      "Bash(git push *)",
+      "Bash(git commit -m 'fix: move vercel.json into nextjs-app/, remove invalid rootDirectory property *)",
+      "Bash(vercel logs *)",
+      "Bash(vercel inspect *)",
+      "Bash(vercel env *)",
+      "Bash(.venv/Scripts/python.exe nextjs-app/scripts/export_for_seed.py)",
+      "Bash(npx ts-node *)",
+      "Bash(vercel --prod)",
+      "Bash(npx tsx *)",
+      "Bash(gh project *)",
+      "Bash(gh label *)",
+      "Bash(gh issue *)",
+      "Bash(gh secret *)",
+      "Bash(gh run *)",
+      "Bash(npx prettier *)"
     ]
   }
 }

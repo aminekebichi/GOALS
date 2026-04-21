@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from "next/link";
 
 interface Match {
   id: string;
@@ -13,22 +13,24 @@ interface Match {
   prediction: string | null;
 }
 
-function getPredictedTeam(match: Match): { label: string; prob: number } | null {
+function getPredictedTeam(
+  match: Match,
+): { label: string; prob: number } | null {
   if (!match.prediction || match.winProb === null) return null;
-  if (match.prediction === 'Home Win') {
+  if (match.prediction === "Home Win") {
     return { label: match.homeTeam, prob: match.winProb };
   }
-  if (match.prediction === 'Away Win') {
+  if (match.prediction === "Away Win") {
     return { label: match.awayTeam, prob: match.lossProb! };
   }
-  return { label: 'Draw', prob: match.drawProb! };
+  return { label: "Draw", prob: match.drawProb! };
 }
 
 function getActualOutcome(match: Match): string | null {
   if (match.homeGoals === null || match.awayGoals === null) return null;
   if (match.homeGoals > match.awayGoals) return `${match.homeTeam} Win`;
   if (match.awayGoals > match.homeGoals) return `${match.awayTeam} Win`;
-  return 'Draw';
+  return "Draw";
 }
 
 function predictionCorrect(match: Match): boolean | null {
@@ -36,9 +38,11 @@ function predictionCorrect(match: Match): boolean | null {
   if (!actual || !match.prediction) return null;
   const predicted = getPredictedTeam(match);
   if (!predicted) return null;
-  if (match.prediction === 'Home Win') return actual === `${match.homeTeam} Win`;
-  if (match.prediction === 'Away Win') return actual === `${match.awayTeam} Win`;
-  return actual === 'Draw';
+  if (match.prediction === "Home Win")
+    return actual === `${match.homeTeam} Win`;
+  if (match.prediction === "Away Win")
+    return actual === `${match.awayTeam} Win`;
+  return actual === "Draw";
 }
 
 export default function MatchCard({ match }: { match: Match }) {
@@ -48,11 +52,11 @@ export default function MatchCard({ match }: { match: Match }) {
   const actualOutcome = getActualOutcome(match);
   const correct = predictionCorrect(match);
 
-  const dateStr = date.toLocaleDateString('en-GB', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
+  const dateStr = date.toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
   });
 
   return (
@@ -77,7 +81,9 @@ export default function MatchCard({ match }: { match: Match }) {
 
       {/* Teams + score */}
       <div className="flex items-center justify-between gap-3">
-        <span className="font-semibold text-sm flex-1 text-right leading-tight">{match.homeTeam}</span>
+        <span className="font-semibold text-sm flex-1 text-right leading-tight">
+          {match.homeTeam}
+        </span>
         <div className="flex flex-col items-center min-w-[60px]">
           {isPlayed ? (
             <span className="text-2xl font-bold text-white tabular-nums">
@@ -87,7 +93,9 @@ export default function MatchCard({ match }: { match: Match }) {
             <span className="text-sm font-bold text-[#8B95A8]">vs</span>
           )}
         </div>
-        <span className="font-semibold text-sm flex-1 leading-tight">{match.awayTeam}</span>
+        <span className="font-semibold text-sm flex-1 leading-tight">
+          {match.awayTeam}
+        </span>
       </div>
 
       {/* Prediction */}
@@ -96,7 +104,9 @@ export default function MatchCard({ match }: { match: Match }) {
           <div className="flex items-center justify-between">
             <span className="text-xs text-[#8B95A8]">Predicted winner</span>
             <div className="flex items-center gap-1.5">
-              <span className="text-sm font-semibold text-[#FF7A00]">{predicted.label}</span>
+              <span className="text-sm font-semibold text-[#FF7A00]">
+                {predicted.label}
+              </span>
               <span className="text-xs text-[#8B95A8]">
                 ({Math.round(predicted.prob * 100)}% confidence)
               </span>
@@ -110,7 +120,7 @@ export default function MatchCard({ match }: { match: Match }) {
               <div className="flex items-center gap-1.5">
                 <span
                   className={`text-sm font-semibold ${
-                    correct === true ? 'text-emerald-400' : 'text-[#FF4B44]'
+                    correct === true ? "text-emerald-400" : "text-[#FF4B44]"
                   }`}
                 >
                   {actualOutcome}
@@ -118,11 +128,11 @@ export default function MatchCard({ match }: { match: Match }) {
                 <span
                   className={`text-xs px-1.5 py-0.5 rounded font-bold ${
                     correct === true
-                      ? 'bg-emerald-400/15 text-emerald-400'
-                      : 'bg-[#FF4B44]/15 text-[#FF4B44]'
+                      ? "bg-emerald-400/15 text-emerald-400"
+                      : "bg-[#FF4B44]/15 text-[#FF4B44]"
                   }`}
                 >
-                  {correct === true ? '✓ Correct' : '✗ Wrong'}
+                  {correct === true ? "✓ Correct" : "✗ Wrong"}
                 </span>
               </div>
             </div>
