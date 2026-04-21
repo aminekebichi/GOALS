@@ -1234,7 +1234,7 @@ The `test-writer` agent produced the failing test files; the implementation was 
 | Deployed application | ✅ Complete | https://project-d7avr.vercel.app |
 | CI/CD pipeline | ✅ Complete | All 8 jobs passing |
 | Technical blog post | ✅ Complete | Published on dev.to: https://dev.to/amine_kebichi_7797c79bbbf/goals-predicting-premier-league-match-outcomes-through-position-specific-player-performance-57ho |
-| Video demonstration (5–10 min) | ⏳ Planned | App walkthrough + Claude Code workflow |
+| Video demonstration (5–10 min) | ✅ Complete | https://www.youtube.com/watch?v=em7b9Cy16wk |
 | Individual reflections (500 words each) | ⏳ Planned | One per partner |
 | Google Form showcase submission | ⏳ Planned | After blog + video complete |
 | Peer evaluations | ⏳ Planned | To be submitted separately |
