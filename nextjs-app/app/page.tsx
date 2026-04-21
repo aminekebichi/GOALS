@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import MatchCard from "@/components/MatchCard";
+import UpcomingSection from "@/components/UpcomingSection";
 import { prisma } from "@/lib/db";
 
 const SEASONS = [
@@ -22,10 +23,13 @@ export default async function HomePage({
     where: { season },
     orderBy: { date: "desc" },
   });
+  const nowIso = new Date().toISOString();
   const matches = raw.map((m) => ({ ...m, date: m.date.toISOString() }));
 
-  const upcoming = matches.filter((m) => m.homeGoals === null);
-  const played = matches.filter((m) => m.homeGoals !== null);
+  // A match is "upcoming" if its kickoff date is still in the future.
+  // Matches with past dates but null goals had no player data scraped.
+  const upcoming = matches.filter((m) => m.date > nowIso);
+  const played = matches.filter((m) => m.date <= nowIso);
 
   return (
     <div className="min-h-screen bg-[#0A0E1A]">
@@ -65,18 +69,7 @@ export default async function HomePage({
           </div>
         ) : (
           <>
-            {upcoming.length > 0 && (
-              <section className="mb-8">
-                <h2 className="text-sm font-semibold text-[#8B95A8] uppercase tracking-wider mb-3">
-                  Upcoming — {upcoming.length} matches
-                </h2>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {upcoming.map((match) => (
-                    <MatchCard key={match.id} match={match} />
-                  ))}
-                </div>
-              </section>
-            )}
+            {upcoming.length > 0 && <UpcomingSection matches={upcoming} />}
 
             {played.length > 0 && (
               <section>

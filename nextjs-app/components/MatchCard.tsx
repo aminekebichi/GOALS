@@ -36,8 +36,6 @@ function getActualOutcome(match: Match): string | null {
 function predictionCorrect(match: Match): boolean | null {
   const actual = getActualOutcome(match);
   if (!actual || !match.prediction) return null;
-  const predicted = getPredictedTeam(match);
-  if (!predicted) return null;
   if (match.prediction === "Home Win")
     return actual === `${match.homeTeam} Win`;
   if (match.prediction === "Away Win")
@@ -45,9 +43,11 @@ function predictionCorrect(match: Match): boolean | null {
   return actual === "Draw";
 }
 
-export default function MatchCard({ match }: { match: Match }) {
+function CardBody({ match }: { match: Match }) {
   const date = new Date(match.date);
-  const isPlayed = match.homeGoals !== null && match.awayGoals !== null;
+  const now = new Date();
+  const isUpcoming = date > now;
+  const hasScore = match.homeGoals !== null && match.awayGoals !== null;
   const predicted = getPredictedTeam(match);
   const actualOutcome = getActualOutcome(match);
   const correct = predictionCorrect(match);
@@ -60,21 +60,21 @@ export default function MatchCard({ match }: { match: Match }) {
   });
 
   return (
-    <Link
-      href={`/matches/${match.id}`}
-      data-testid="match-card"
-      className="bg-[#111827] border border-[#1C2333] rounded-xl p-5 hover:border-[#FF4B44]/40 transition-colors flex flex-col gap-4 cursor-pointer"
-    >
+    <>
       {/* Header row */}
       <div className="flex justify-between items-center">
         <span className="text-xs text-[#8B95A8]">{dateStr}</span>
-        {isPlayed ? (
+        {isUpcoming ? (
+          <span className="text-xs bg-[#FF4B44]/20 text-[#FF4B44] px-2 py-1 rounded font-medium">
+            Upcoming
+          </span>
+        ) : hasScore ? (
           <span className="text-xs bg-[#1C2333] text-[#8B95A8] px-2 py-1 rounded font-medium">
             Full Time
           </span>
         ) : (
-          <span className="text-xs bg-[#FF4B44]/20 text-[#FF4B44] px-2 py-1 rounded font-medium">
-            Upcoming
+          <span className="text-xs bg-[#1C2333] text-[#8B95A8] px-2 py-1 rounded font-medium">
+            Played
           </span>
         )}
       </div>
@@ -85,7 +85,7 @@ export default function MatchCard({ match }: { match: Match }) {
           {match.homeTeam}
         </span>
         <div className="flex flex-col items-center min-w-[60px]">
-          {isPlayed ? (
+          {hasScore ? (
             <span className="text-2xl font-bold text-white tabular-nums">
               {match.homeGoals}&nbsp;–&nbsp;{match.awayGoals}
             </span>
@@ -113,8 +113,7 @@ export default function MatchCard({ match }: { match: Match }) {
             </div>
           </div>
 
-          {/* Actual outcome for played matches */}
-          {isPlayed && actualOutcome && (
+          {hasScore && actualOutcome && (
             <div className="flex items-center justify-between">
               <span className="text-xs text-[#8B95A8]">Actual result</span>
               <div className="flex items-center gap-1.5">
@@ -139,6 +138,35 @@ export default function MatchCard({ match }: { match: Match }) {
           )}
         </div>
       )}
+    </>
+  );
+}
+
+export default function MatchCard({
+  match,
+  isClickable = true,
+}: {
+  match: Match;
+  isClickable?: boolean;
+}) {
+  const baseClass =
+    "bg-[#111827] border border-[#1C2333] rounded-xl p-5 flex flex-col gap-4";
+
+  if (!isClickable) {
+    return (
+      <div data-testid="match-card" className={baseClass}>
+        <CardBody match={match} />
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={`/matches/${match.id}`}
+      data-testid="match-card"
+      className={`${baseClass} hover:border-[#FF4B44]/40 transition-colors cursor-pointer`}
+    >
+      <CardBody match={match} />
     </Link>
   );
 }
