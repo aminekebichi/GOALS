@@ -1236,7 +1236,7 @@ The `test-writer` agent produced the failing test files; the implementation was 
 | Technical blog post | ✅ Complete | Published on dev.to: https://dev.to/amine_kebichi_7797c79bbbf/goals-predicting-premier-league-match-outcomes-through-position-specific-player-performance-57ho |
 | Video demonstration (5–10 min) | ✅ Complete | https://www.youtube.com/watch?v=em7b9Cy16wk |
 | Individual reflections (500 words each) | ✅ Complete | Amine: `AmineKebichi_Reflection.md` (repo root) · Nicholas: pending |
-| Google Form showcase submission | ⏳ Planned | After blog + video complete |
+| Google Form showcase submission | ✅ Complete | Submitted |
 | Peer evaluations | ⏳ Planned | To be submitted separately |
 
 ### Accuracy Ceiling
